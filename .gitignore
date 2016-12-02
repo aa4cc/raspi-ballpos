@@ -7,9 +7,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# C extensions
-*.so
-
 # Distribution / packaging
 .Python
 env/
@@ -114,3 +111,6 @@ slprj/
 
 # Session info
 octave-workspace
+
+# Configuration
+config.py
