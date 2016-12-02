@@ -12,6 +12,10 @@ import sys
 import hooppos
 import math
 
+# Add the parent directory to the path
+import os.path, sys
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
 try:
     from config import config
 except ImportError:
@@ -31,12 +35,16 @@ done = False
 ACCEPTED_STREAM_MODES = {'t', 'g', 'd', None}
 udp_sock = None
 
-def findTheBall(image, denoise = True, kernel = None, iterations = 2):
+def findTheBall(image, downsample_ratio = 1, denoise = True, kernel = None, iterations = 2):
+    # Downsample if the parameter downsample_ratio is given
+    if downsample_ratio > 1:
+        image = image[::downsample_ratio, ::downsample_ratio, :]
+
     im = np.clip(image[:,:,0]*params["color_coefs"][0] + image[:,:,1]*params["color_coefs"][1] + image[:,:,2]*params["color_coefs"][2], 0, 255).astype(np.uint8) 
     #im = cv2.addWeighted(b, params["color_coefs"][2], g, -0.25, params["color_coefs"][1])
     #im = cv2.addWeighted(im, 1, r, params["color_coefs"][0], 0)
 
-    im_thrs = cv2.inRange(im, params["threshold"],250)
+    im_thrs = cv2.inRange(im, params["threshold"],255)
     if denoise:
         # im_denoised = cv2.dilate(im_thrs, kernel, iterations)
         # im_denoised = cv2.erode(im_denoised, kernel, iterations)
@@ -48,10 +56,10 @@ def findTheBall(image, denoise = True, kernel = None, iterations = 2):
     # ((x, y), radius) = cv2.minEnclosingCircle(c)
 
     M = cv2.moments(im_denoised)
-    if params["minballmass"] < M['m00'] < params["maxballmass"]:
+    if params["minballmass"] < M['m00']*(downsample_ratio**2) < params["maxballmass"]:
         center = ( (int(M['m10'] / M['m00']), int(M['m01'] / M['m00'])) )
     else:
-        print('Ball mass out of ranges ({0[minballmass]} < {1} < {0[maxballmass]})'.format(params, M['m00']))
+        print("Ball mass out of ranges {0:.0f} < {2:.0f} < {1:.0f} [px^2]".format(params['minballmass']/255, params['maxballmass']/255, M['m00']))
         center = None
 
     return center, im_thrs, im_denoised
@@ -62,10 +70,9 @@ def processImage(frame_number, image):
     try:
         # Downsample the image
         # e1 = cv2.getTickCount()
-        img_dwnsample = image[::params['downsample'], ::params['downsample'], :]
-        
+                
         # center, im_thrs, im_denoised = findTheBall(img_dwnsample, iterations = 1, kernel = np.ones((2,2),np.uint8))
-        center, im_thrs, im_denoised = findTheBall(img_dwnsample, denoise = False)
+        center, im_thrs, im_denoised = findTheBall(image, downsample_ratio = params["downsample"], denoise = False)
         if center is not None:
             center = (params['downsample']*center[0], params['downsample']*center[1])   
 
@@ -74,7 +81,7 @@ def processImage(frame_number, image):
             # if center is not None:
                 # cv2.circle(img_dwnsample, center, 5, (0, 0, 255), -1)
             cv2.imwrite("{}im_dwn_denoised{}.png".format(params['img_path'], frame_number), im_denoised)
-            cv2.imwrite("{}im_dwn{}.png".format(params['img_path'], frame_number), img_dwnsample)       
+            cv2.imwrite("{}image{}.png".format(params['img_path'], frame_number), image)       
             cv2.imwrite("{}im_thrs{}.png".format(params['img_path'], frame_number), im_thrs)         
 
         # e2 = cv2.getTickCount()
@@ -241,7 +248,7 @@ def main(**kwargs):
         # The values are multiplied by 255 because the the pixels in the binary image have values 0 and 255 (weird, isn't it?).
         params['minballmass'] = (params["ball_size"][0]/2)**2 * math.pi * 255
         params['maxballmass'] = (params["ball_size"][1]/2)**2 * math.pi * 255
-        print("Ball mass must be between {0[minballmass]} and {0[maxballmass]}".format(params))
+        print("Ball mass must be between {:.0f} px^2 and {:.0f} px^2".format(params['minballmass']/255, params['maxballmass']/255))
         print("Image channel combination coefficients: ({})".format(params["color_coefs"]))
 
         # Check whether the value of the streaming option
