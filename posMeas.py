@@ -74,7 +74,8 @@ def processImage(frame_number, image):
             # if center is not None:
                 # cv2.circle(img_dwnsample, center, 5, (0, 0, 255), -1)
             cv2.imwrite("{}im_dwn_denoised{}.png".format(params['img_path'], frame_number), im_denoised)
-            cv2.imwrite("{}im_dwn{}.png".format(params['img_path'], frame_number), img_dwnsample)         
+            cv2.imwrite("{}im_dwn{}.png".format(params['img_path'], frame_number), img_dwnsample)       
+            cv2.imwrite("{}im_thrs{}.png".format(params['img_path'], frame_number), im_thrs)         
 
         # e2 = cv2.getTickCount()
         # elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
