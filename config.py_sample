@@ -1,0 +1,12 @@
+config={
+	'frame_rate': 50,
+	'exposition_time':10,
+	'ip-port': (None, 0),
+	'downsample': 8,
+	'color_coefs': (-0.5, -0.25, 1),
+	'threshold': 90,
+	'resolution': (640,480),
+	'tracking_window': 64,
+	'img_path': '/home/pi/magman/img/',
+	'ball_size': (0, 150)
+}
