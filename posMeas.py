@@ -220,7 +220,7 @@ def streams():
 @click.option('--debug', '-d', count=True, default=False, help='Save masks and ROIs together with the identified position of the ball.')
 @click.option('--ip-port', '-i', type=(str, int), default=(None, 0), help='Specify the ip address and port of the host the measured position will be sending to.')
 @click.option('--downsample', '-dw', type=int, default=6, help='Specify the down-sample ration for the initial ball localization routine.')
-@click.option('--color_coefs', '-c', default=(-0.5, -0.25, 1), help='Specify coeficients for color parts adding')
+@click.option('--color-coefs', '-c', default=(-0.5, -0.25, 1.0), help='Specify coeficients for color parts adding')
 @click.option('--threshold', '-t', default=90, help='Threshold for color clasifiing')
 @click.option('--resolution', '-r', type=(int, int), default=(640,480), help='Image resolution')
 @click.option('--tracking-window-halfsize', '-w', type=int, default=48, help='Size of window for tracking')
@@ -242,6 +242,7 @@ def main(**kwargs):
         params['minballmass'] = (params["ball_size"][0]/2)**2 * math.pi * 255
         params['maxballmass'] = (params["ball_size"][1]/2)**2 * math.pi * 255
         print("Ball mass must be between {0[minballmass]} and {0[maxballmass]}".format(params))
+        print("Image channel combination coefficients: ({})".format(params["color_coefs"]))
 
         # Check whether the value of the streaming option
         if params['stream'] not in ACCEPTED_STREAM_MODES:
