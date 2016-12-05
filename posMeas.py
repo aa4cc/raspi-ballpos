@@ -235,6 +235,8 @@ def streams():
 @click.option('--video-record', is_flag=True, default=False, help="Record video")
 @click.option('--img-path', type=str, default='./img/', help='Path to store images, ideally ramdisk')
 @click.option('--ball-size', type=(int, int), default=(0, 60), help="Min and max ball diameter in pixels")
+@click.option('--lamp-control', '-l', type=int, default=None, help="Pin for control external lamp")
+@click.option('--lamp-delay', type=float, default=2, help="Pin for control external lamp")
 def main(**kwargs):
     global params, fps, udp_sock
 
@@ -250,6 +252,21 @@ def main(**kwargs):
         params['maxballmass'] = (params["ball_size"][1]/2)**2 * math.pi * 255
         print("Ball mass must be between {:.0f} px^2 and {:.0f} px^2".format(params['minballmass']/255, params['maxballmass']/255))
         print("Image channel combination coefficients: ({})".format(params["color_coefs"]))
+
+        if params['lamp_control'] is not None:
+            try:
+                import RPi.GPIO as GPIO
+                GPIO.setmode(GPIO.BCM)
+                print("Starting lamp....     ", end="", flush=True)
+                GPIO.setup(params['lamp_control'], GPIO.OUT)
+                GPIO.output(params['lamp_control'], True);
+                # Let the light warm up
+                time.sleep(params['lamp_delay'])
+                print("OK")
+            except RuntimeError:
+                print("Error importing RPi.GPIO!  This is probably because you need superuser privileges.  You can achieve this by using 'sudo' to run your script")
+            except ImportError:
+                print("Libratry RPi.GPIO not found, light controll not possible! You can install it using 'sudo pip3 install rpi.gpio' to install library")
 
         # Check whether the value of the streaming option
         if params['stream'] not in ACCEPTED_STREAM_MODES:
@@ -320,6 +337,10 @@ def main(**kwargs):
         # Shut down the processors in an orderly fashion
         if camera is not None:
             camera.close()
+
+        if params['lamp_control'] is not None and GPIO:
+            GPIO.output(params['lamp_control'], False);
+            GPIO.cleanup()
 
 if __name__=='__main__':
     main(default_map=config)
