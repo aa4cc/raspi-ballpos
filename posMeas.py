@@ -35,20 +35,22 @@ done = False
 ACCEPTED_STREAM_MODES = {'t', 'g', 'd', None}
 udp_sock = None
 
-def findTheBall(image, downsample_ratio = 1, denoise = True, kernel = None, iterations = 2):
-    # Downsample if the parameter downsample_ratio is given
-    if downsample_ratio > 1:
-        image = image[::downsample_ratio, ::downsample_ratio, :]
+mask = None
+mask_dwn = None
 
+def findTheBall(image, ball_size_lim = None, mask = None, denoise = True, kernel = None, iterations = 2):
+    # take a linear combination of the color channels to get a grayscale image containg only images of a desired color
     im = np.clip(image[:,:,0]*params["color_coefs"][0] + image[:,:,1]*params["color_coefs"][1] + image[:,:,2]*params["color_coefs"][2], 0, 255).astype(np.uint8) 
-    #im = cv2.addWeighted(b, params["color_coefs"][2], g, -0.25, params["color_coefs"][1])
-    #im = cv2.addWeighted(im, 1, r, params["color_coefs"][0], 0)
+
+    # apply a mask if it is given
+    if mask is not None:
+        im = cv2.bitwise_and(im, im, mask = mask)
 
     im_thrs = cv2.inRange(im, params["threshold"],255)
     if denoise:
         # im_denoised = cv2.dilate(im_thrs, kernel, iterations)
         # im_denoised = cv2.erode(im_denoised, kernel, iterations)
-        im_denoised = cv2.morphologyEx(im_thrs, cv2.MORPH_OPEN, None)      
+        im_denoised = cv2.morphologyEx(im_thrs, cv2.MORPH_OPEN, None)
     else:
         im_denoised = im_thrs
 
@@ -56,10 +58,10 @@ def findTheBall(image, downsample_ratio = 1, denoise = True, kernel = None, iter
     # ((x, y), radius) = cv2.minEnclosingCircle(c)
 
     M = cv2.moments(im_denoised)
-    if params["minballmass"] < M['m00']*(downsample_ratio**2) < params["maxballmass"]:
+    if M['m00'] > 0 and (ball_size_lim is None  or ball_size_lim[0] < M['m00'] < ball_size_lim[1]):
         center = ( (int(M['m10'] / M['m00']), int(M['m01'] / M['m00'])) )
     else:
-        print("Ball mass out of ranges {0:.0f} < {2:.0f} < {1:.0f} [px^2]".format(params['minballmass']/255, params['maxballmass']/255, M['m00']))
+        print("Ball mass out of mass ranges.")
         center = None
 
     return center, im_thrs, im_denoised
@@ -69,10 +71,13 @@ def processImage(frame_number, image):
 
     try:
         # Downsample the image
-        # e1 = cv2.getTickCount()
-                
-        # center, im_thrs, im_denoised = findTheBall(img_dwnsample, iterations = 1, kernel = np.ones((2,2),np.uint8))
-        center, im_thrs, im_denoised = findTheBall(image, downsample_ratio = params["downsample"], denoise = False)
+        if params["downsample"] > 1:
+            image_dwn = image[::params["downsample"], ::params["downsample"], :]
+            ballmasslim_dwn = params['ballmasslim'][0]//(params["downsample"]**2), params['ballmasslim'][1]//(params["downsample"]**2)
+        else:
+            image_dwn = image
+
+        center, im_thrs, im_denoised = findTheBall(image_dwn, ballmasslim_dwn, mask = mask_dwn, denoise = False)
         if center is not None:
             center = (params['downsample']*center[0], params['downsample']*center[1])   
 
@@ -101,8 +106,13 @@ def processImage(frame_number, image):
             ROI_yright = min((center[0]+params["tracking_window_halfsize"]), params["resolution"][0])
             imageROI = image[ ROI_xtop:ROI_xbottom,  ROI_yleft:ROI_yright, :]
 
+            if mask is not None:
+                mask_ROI = mask[ROI_xtop:ROI_xbottom,  ROI_yleft:ROI_yright]
+            else:
+                mask_ROI = None
+
             # Find the ball in the region of interest
-            center_inROI, im_thrs, im_denoised = findTheBall(imageROI, denoise=False)
+            center_inROI, im_thrs, im_denoised = findTheBall(imageROI, params['ballmasslim'], denoise=False, mask=mask_ROI)
 
             # If the ball is not found, raise an exception
             if center_inROI is None:
@@ -235,8 +245,9 @@ def streams():
 @click.option('--video-record', is_flag=True, default=False, help="Record video")
 @click.option('--img-path', type=str, default='./img/', help='Path to store images, ideally ramdisk')
 @click.option('--ball-size', type=(int, int), default=(0, 60), help="Min and max ball diameter in pixels")
+@click.option('--mask', '-m',type=(str), default=None, help="Filename of mask to be applied on the captured images. The mask is assumed to be grayscale with values 255 for True and 0 for False.")
 def main(**kwargs):
-    global params, fps, udp_sock
+    global params, fps, udp_sock, mask, mask_dwn
 
     camera = None
     try:
@@ -246,9 +257,9 @@ def main(**kwargs):
 
         # Ball mass - ball is approximately 40 px in diameter in the image hence the mass should be somewhere around pi*20^2=1256.
         # The values are multiplied by 255 because the the pixels in the binary image have values 0 and 255 (weird, isn't it?).
-        params['minballmass'] = (params["ball_size"][0]/2)**2 * math.pi * 255
-        params['maxballmass'] = (params["ball_size"][1]/2)**2 * math.pi * 255
-        print("Ball mass must be between {:.0f} px^2 and {:.0f} px^2".format(params['minballmass']/255, params['maxballmass']/255))
+        params['ballmasslim'] = (params["ball_size"][0]/2)**2 * math.pi * 255, (params["ball_size"][1]/2)**2 * math.pi * 255
+        
+        print("Ball mass must be between {:.0f} px^2 and {:.0f} px^2".format(params['ballmasslim'][0]/255, params['ballmasslim'][1]/255))
         print("Image channel combination coefficients: ({})".format(params["color_coefs"]))
 
         # Check whether the value of the streaming option
@@ -272,6 +283,10 @@ def main(**kwargs):
             click.echo('Verbose')
         if params['debug']:
             click.echo('Debug {}'.format(params["debug"]))
+
+        if params['mask']:
+            mask = cv2.imread(params['mask'], 0)//255
+            mask_dwn = mask[::params["downsample"], ::params["downsample"]]
 
         with picamera.PiCamera() as camera:
             camera.resolution = params["resolution"]

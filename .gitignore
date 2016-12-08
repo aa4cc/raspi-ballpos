@@ -114,3 +114,6 @@ octave-workspace
 
 # Configuration
 config.py
+
+# Ignore stored images
+*.png
