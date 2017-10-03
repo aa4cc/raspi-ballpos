@@ -11,6 +11,7 @@ import re
 import sys
 import hooppos
 import math
+import os.path
 
 # Add the parent directory to the path
 import os.path, sys
@@ -131,7 +132,7 @@ def processImage(frame_number, image):
                 cv2.imwrite("{}im_denoised{}.png".format(params['img_path'], frame_number), im_denoised)         
 
         # Write the measured position to the shred memory
-        if center is not None:
+        if center is not None and center_inROI is not None:
             hooppos.measpos_write(center[0], center[1])
         else:
             hooppos.measpos_write(params["resolution"][0]+1, params["resolution"][1]+1)
@@ -301,9 +302,12 @@ def main(**kwargs):
         if params['debug']:
             click.echo('Debug {}'.format(params["debug"]))
 
-        if params['mask']:
-            mask = cv2.imread(params['mask'], 0)//255
-            mask_dwn = mask[::params["downsample"], ::params["downsample"]]
+        if params['mask'] is not None:
+            if os.path.isfile(params['mask']):
+                mask = cv2.imread(params['mask'], 0)//255
+                mask_dwn = mask[::params["downsample"], ::params["downsample"]]
+            else:
+                raise Exception('The mask with the given filename was not found!')
 
         with picamera.PiCamera() as camera:
             camera.resolution = params["resolution"]
