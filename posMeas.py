@@ -21,7 +21,7 @@ try:
     from config import config
 except ImportError:
     print("No default config found")
-    conifg = None
+    config = None
     
 from imutils.video import FPS
 
