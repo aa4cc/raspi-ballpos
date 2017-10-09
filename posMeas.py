@@ -298,7 +298,7 @@ def main(**kwargs):
             aa = re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", params['ip'])
             if aa is not None:
                 params['ip'] = aa.group()
-                click.echo('IP: {ip}, port: {port}'.format(**params))
+                click.echo('IP: {ip}:{port}'.format(**params))
                 udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
             else:
                 params['ip'] = None
