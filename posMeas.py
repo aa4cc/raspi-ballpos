@@ -184,7 +184,7 @@ def processImage(frame_number, image):
         # Set done to True if you want the script to terminate
         # at some point
         frame_number += 1
-        if frame_number >= params["num_frames"]:
+        if frame_number >= params["num_frames"] > 0:
             done=True
 
         fps.update()
@@ -233,7 +233,7 @@ def streams(camera):
         #print('Freq : {}'.format(round(1/elapsed_time)))
 
 @click.command()
-@click.option('--num-frames', '-n', default=1, help='Total number of frames to process')
+@click.option('--num-frames', '-n', default=0, help='Total number of frames to process')
 @click.option('--frame-rate', '-f', default=10, help='Number of frames per second to process')
 @click.option('--exposition-time', '-e', default=10, help='Exposition time (shutter speed) in milliseconds.')
 @click.option('--verbose', '-v', is_flag=True, default=False, help='Display time needed for processing of each frame and the measured position.')
@@ -291,14 +291,14 @@ def main(**kwargs):
             print('Invalid option for streaming settings. Images will not be streamed.')
             params['stream'] = None 
 
-        click.echo('Number of frames: %d' % params['num_frames'])
-        click.echo('FPS: %d' % params['frame_rate'])
+        click.echo('Number of frames: {num_frames}'.format(**params))
+        click.echo('FPS: {frame_rate}'.format(**params))
 
         if params['ip'] is not None:
             aa = re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", params['ip'])
             if aa is not None:
                 params['ip'] = aa.group()
-                click.echo('IP: %s, port: %d' % (params['ip'], params['port']))
+                click.echo('IP: {ip}, port: {port}'.format(**params))
                 udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
             else:
                 params['ip'] = None
@@ -325,6 +325,10 @@ def main(**kwargs):
             camera.hflip = params["hflip"]
             camera.vflip = params["vflip"]
 
+            if params["annotate"]:
+                camera.annotate_foreground = picamera.Color(params["annotate"])
+                camera.annotate_text = "Starting detection..."
+
             if params['preview']:
                 camera.start_preview()
 
@@ -344,10 +348,6 @@ def main(**kwargs):
                 camera.start_recording('{}video.h264'.format(params['img_path']), splitter_port=2, resize=params["resolution"])
 
             fps = FPS().start()
-            
-            if params["annotate"]:
-                camera.annotate_foreground = picamera.Color(params["annotate"])
-                camera.annotate_text = "Position: {}".format(None)
 
             camera.capture_sequence(streams(camera), use_video_port=True, format="rgb")
 
