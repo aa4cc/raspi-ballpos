@@ -249,6 +249,8 @@ def streams():
 @click.option('--mask', '-m',type=(str), default=None, help="Filename of mask to be applied on the captured images. The mask is assumed to be grayscale with values 255 for True and 0 for False.")
 @click.option('--lamp-control', '-l', type=int, default=None, help="Pin for control external lamp")
 @click.option('--lamp-delay', type=float, default=2, help="Pin for control external lamp")
+@click.option('--hflip', is_flag=True, default=False, help="Horizontal flip of image")
+@click.option('--vflip', is_flag=True, default=False, help="Vertial flip of image")
 def main(**kwargs):
     global params, fps, udp_sock, mask, mask_dwn
 
@@ -316,6 +318,8 @@ def main(**kwargs):
             camera.framerate = params['frame_rate']        
             camera.shutter_speed = params['exposition_time']*1000
             camera.iso = 200
+            camera.hflip = params["hflip"]
+            camera.vflip = params["vflip"]
 
             if params['preview']:
                 camera.start_preview()
