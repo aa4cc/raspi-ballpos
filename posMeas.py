@@ -192,9 +192,10 @@ def processImage(frame_number, image):
     return center
 
 class ImageProcessor(io.BytesIO):
-    def __init__(self):
+    def __init__(self, camera):
         super().__init__()
         self.frame_number = 0;
+        self.camera = camera
 
     def write(self, b):
 
@@ -213,13 +214,15 @@ class ImageProcessor(io.BytesIO):
                 center_to_print = center
             else:
                 center_to_print = ('-', '-')
-
             print('Frame: {}, center ({},{}), elapsed time: {}'.format(self.frame_number, center_to_print[0], center_to_print[1], elapsed_time))
+        if params["annotate"]:
+            self.camera.annotate_text = "Position: {}".format(center)
+
         self.frame_number += 1        
 
 
-def streams():
-    processor = ImageProcessor()
+def streams(camera):
+    processor = ImageProcessor(camera)
 
     while not done:
         #e1 = cv2.getTickCount()
@@ -249,8 +252,9 @@ def streams():
 @click.option('--mask', '-m',type=(str), default=None, help="Filename of mask to be applied on the captured images. The mask is assumed to be grayscale with values 255 for True and 0 for False.")
 @click.option('--lamp-control', '-l', type=int, default=None, help="Pin for control external lamp")
 @click.option('--lamp-delay', type=float, default=2, help="Pin for control external lamp")
-@click.option('--hflip', is_flag=True, default=False, help="Horizontal flip of image")
-@click.option('--vflip', is_flag=True, default=False, help="Vertial flip of image")
+@click.option('--hflip/--no-hflip', is_flag=True, default=False, help="Horizontal flip of image")
+@click.option('--vflip/--no-vflip', is_flag=True, default=False, help="Vertial flip of image")
+@click.option('--annotate', '-a', default=None, help="Color of position in preview")
 def main(**kwargs):
     global params, fps, udp_sock, mask, mask_dwn
 
@@ -341,7 +345,11 @@ def main(**kwargs):
 
             fps = FPS().start()
             
-            camera.capture_sequence(streams(), use_video_port=True, format="rgb")
+            if params["annotate"]:
+                camera.annotate_foreground = picamera.Color(params["annotate"])
+                camera.annotate_text = "Position: {}".format(None)
+
+            camera.capture_sequence(streams(camera), use_video_port=True, format="rgb")
 
             if params["video_record"]:
                 camera.stop_recording(splitter_port=2)
