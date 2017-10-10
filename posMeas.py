@@ -349,34 +349,39 @@ def main(**kwargs):
                 camera.annotate_text = "Starting detection..."
 
             if params['preview']:
-                screen_w, screen_h = get_monitors()[0].width, get_monitors()[0].height
-                prev_w, prev_h = camera.resolution[0], camera.resolution[1]
+                try:
+                    screen_w, screen_h = get_monitors()[0].width, get_monitors()[0].height
+                    prev_w, prev_h = camera.resolution[0], camera.resolution[1]
 
-                screen_r = screen_w/screen_h
-                prev_r = prev_w/prev_h
+                    screen_r = screen_w/screen_h
+                    prev_r = prev_w/prev_h
 
-                if screen_r > prev_r:
-                    h = screen_h
-                    w = int(screen_h*prev_r)
-                else:
-                    h = screen_w/prev_r
-                    w = int(screen_w)
+                    if screen_r > prev_r:
+                        h = screen_h
+                        w = int(screen_h*prev_r)
+                    else:
+                        h = screen_w/prev_r
+                        w = int(screen_w)
 
-                offset_x = int((screen_w-w)/2)
-                offset_y = int((screen_h-h)/2)
-                scale = w/prev_w
+                    offset_x = int((screen_w-w)/2)
+                    offset_y = int((screen_h-h)/2)
+                    scale = w/prev_w
 
-                preview = camera.start_preview(fullscreen=False, window=(offset_x,offset_y,w,h))
+                    preview = camera.start_preview(fullscreen=False, window=(offset_x,offset_y,w,h))
 
-                if params["overlay"]:
-                    buff, size, format, center = gen_overlay(params["overlay"])
-                    o=camera.add_overlay(buff, layer=3, alpha=params["overlay_alpha"], fullscreen=False, size=size, format=format, window=(0,0,size[0],size[1]))
+                    if params["overlay"]:
+                        buff, size, format, center = gen_overlay(params["overlay"])
+                        o=camera.add_overlay(buff, layer=3, alpha=params["overlay_alpha"], fullscreen=False, size=size, format=format, window=(0,0,size[0],size[1]))
 
-                    def move_overlay(x,y, center_x=center[0], center_y=center[1]):
-                        o.window = (offset_x-center_x+int(x*scale), offset_y-center[1]+int(y*scale), size[0], size[1])
+                        def move_overlay(x,y, center_x=center[0], center_y=center[1]):
+                            o.window = (offset_x-center_x+int(x*scale), offset_y-center[1]+int(y*scale), size[0], size[1])
 
-                    o.move = move_overlay
-                    o.move(0,0)
+                        o.move = move_overlay
+                        o.move(0,0)
+                except NotImplementedError:
+                    print("Calculations for overlay not supported without X server (Cannot get monitor resolution)")
+                    params["overlay"] = None
+                    preview = start_preview()
 
             # Let the camera warm up
             time.sleep(2)
