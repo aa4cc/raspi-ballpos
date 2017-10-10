@@ -381,7 +381,7 @@ def main(**kwargs):
                 except NotImplementedError:
                     print("Calculations for overlay not supported without X server (Cannot get monitor resolution)")
                     params["overlay"] = None
-                    preview = start_preview()
+                    preview = camera.start_preview()
 
             # Let the camera warm up
             time.sleep(2)
