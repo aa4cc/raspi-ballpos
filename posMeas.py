@@ -255,6 +255,7 @@ def streams(camera):
 @click.option('--hflip/--no-hflip', is_flag=True, default=False, help="Horizontal flip of image")
 @click.option('--vflip/--no-vflip', is_flag=True, default=False, help="Vertial flip of image")
 @click.option('--annotate', '-a', default=None, help="Color of position in preview")
+@click.option('--console', is_flag=True, help="Start console instead of detection")
 def main(**kwargs):
     global params, fps, udp_sock, mask, mask_dwn
 
@@ -348,6 +349,18 @@ def main(**kwargs):
                 camera.start_recording('{}video.h264'.format(params['img_path']), splitter_port=2, resize=params["resolution"])
 
             fps = FPS().start()
+
+            if params["console"]:
+                import code
+                try:
+                    import readline
+                except ImportError:
+                    print("Module readline not available.")
+                else:
+                    import rlcompleter
+                    readline.parse_and_bind("tab: complete")
+                code.interact(local=dict(globals(), **locals()))
+                return
 
             camera.capture_sequence(streams(camera), use_video_port=True, format="rgb")
 
