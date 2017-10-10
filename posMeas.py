@@ -236,6 +236,18 @@ def streams(camera):
         #elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
         #print('Freq : {}'.format(round(1/elapsed_time)))
 
+def gen_overlay(arg):
+    try:
+        size = int(arg)
+        x = size*32
+        y = size*32
+        a = np.zeros((x,y,3), dtype=np.uint8)
+        a[size*16, :, :] = 0xff
+        a[:, size*16, :] = 0xff
+        return a.tobytes(), a.shape[0:2], 'rgb', (int(a.shape[0]/2), int(a.shape[1]/2))
+    except ValueError:
+        raise ValueError('Argument "{}"is not valid overlay'.format(arg))
+
 @click.command()
 @click.option('--num-frames', '-n', default=0, help='Total number of frames to process')
 @click.option('--frame-rate', '-f', default=10, help='Number of frames per second to process')
@@ -260,7 +272,8 @@ def streams(camera):
 @click.option('--vflip/--no-vflip', is_flag=True, default=False, help="Vertial flip of image")
 @click.option('--annotate', '-a', default=None, help="Color of position in preview")
 @click.option('--console', is_flag=True, help="Start console instead of detection")
-@click.option('--overlay', '-o', type=(int, int), help='Enable overlays')
+@click.option('--overlay', '-o', default=None, help='Enable overlay')
+@click.option('--overlay-alpha', default=50, help='Overlay alpha')
 def main(**kwargs):
     global params, fps, udp_sock, mask, mask_dwn
 
@@ -356,16 +369,11 @@ def main(**kwargs):
                 preview = camera.start_preview(fullscreen=False, window=(offset_x,offset_y,w,h))
 
                 if params["overlay"]:
-                    x = (params['overlay'][0]+31)//32*32
-                    y = (params['overlay'][1]+31)//32*32
-                    p = (params['overlay'][0] * params['overlay'][1] * 3) 
-                    a = np.zeros((x,y,3), dtype=np.uint8)
-                    a[int(params['overlay'][0]/2), :, :] = 0xff
-                    a[:, int(params['overlay'][1]/2), :] = 0xff
-                    o=camera.add_overlay(a.tobytes()[:p], layer=3, alpha=150, fullscreen=False, size=params["overlay"], format='rgb', window=(0,0,params['overlay'][0],params['overlay'][1]))
+                    buff, size, format, center = gen_overlay(params["overlay"])
+                    o=camera.add_overlay(buff, layer=3, alpha=params["overlay_alpha"], fullscreen=False, size=size, format=format, window=(0,0,size[0],size[1]))
 
-                    def move_overlay(x,y, center_x=int(params['overlay'][0]/2), center_y=int(params['overlay'][1]/2)):
-                        o.window = (offset_x-center_x+int(x*scale), offset_y-center_y+int(y*scale), params['overlay'][0], params['overlay'][1])
+                    def move_overlay(x,y, center_x=center[0], center_y=center[1]):
+                        o.window = (offset_x-center_x+int(x*scale), offset_y-center[1]+int(y*scale), size[0], size[1])
 
                     o.move = move_overlay
                     o.move(0,0)
