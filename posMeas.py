@@ -12,6 +12,7 @@ import sys
 import hooppos
 import math
 import os.path
+from screeninfo import get_monitors
 
 # Add the parent directory to the path
 import os.path, sys
@@ -218,6 +219,9 @@ class ImageProcessor(io.BytesIO):
         if params["annotate"]:
             self.camera.annotate_text = "Position: {}".format(center)
 
+        if params["overlay"] and center:
+            self.camera.overlays[0].move(*center)
+
         self.frame_number += 1        
 
 
@@ -256,6 +260,7 @@ def streams(camera):
 @click.option('--vflip/--no-vflip', is_flag=True, default=False, help="Vertial flip of image")
 @click.option('--annotate', '-a', default=None, help="Color of position in preview")
 @click.option('--console', is_flag=True, help="Start console instead of detection")
+@click.option('--overlay', '-o', type=(int, int), help='Enable overlays')
 def main(**kwargs):
     global params, fps, udp_sock, mask, mask_dwn
 
@@ -331,7 +336,39 @@ def main(**kwargs):
                 camera.annotate_text = "Starting detection..."
 
             if params['preview']:
-                camera.start_preview()
+                screen_w, screen_h = get_monitors()[0].width, get_monitors()[0].height
+                prev_w, prev_h = camera.resolution[0], camera.resolution[1]
+
+                screen_r = screen_w/screen_h
+                prev_r = prev_w/prev_h
+
+                if screen_r > prev_r:
+                    h = screen_h
+                    w = int(screen_h*prev_r)
+                else:
+                    h = screen_w/prev_r
+                    w = int(screen_w)
+
+                offset_x = int((screen_w-w)/2)
+                offset_y = int((screen_h-h)/2)
+                scale = w/prev_w
+
+                preview = camera.start_preview(fullscreen=False, window=(offset_x,offset_y,w,h))
+
+                if params["overlay"]:
+                    x = (params['overlay'][0]+31)//32*32
+                    y = (params['overlay'][1]+31)//32*32
+                    p = (params['overlay'][0] * params['overlay'][1] * 3) 
+                    a = np.zeros((x,y,3), dtype=np.uint8)
+                    a[int(params['overlay'][0]/2), :, :] = 0xff
+                    a[:, int(params['overlay'][1]/2), :] = 0xff
+                    o=camera.add_overlay(a.tobytes()[:p], layer=3, alpha=150, fullscreen=False, size=params["overlay"], format='rgb', window=(0,0,params['overlay'][0],params['overlay'][1]))
+
+                    def move_overlay(x,y, center_x=int(params['overlay'][0]/2), center_y=int(params['overlay'][1]/2)):
+                        o.window = (offset_x-center_x+int(x*scale), offset_y-center_y+int(y*scale), params['overlay'][0], params['overlay'][1])
+
+                    o.move = move_overlay
+                    o.move(0,0)
 
             # Let the camera warm up
             time.sleep(2)
