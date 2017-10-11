@@ -9,7 +9,7 @@ import socket, struct
 import click
 import re
 import sys
-import hooppos
+import ballposition
 import math
 import os.path
 from screeninfo import get_monitors
@@ -134,9 +134,9 @@ def processImage(frame_number, image):
 
         # Write the measured position to the shred memory
         if center is not None and center_inROI is not None:
-            hooppos.measpos_write(center[0], center[1])
+            ballposition.write(center)
         else:
-            hooppos.measpos_write(params["resolution"][0]+1, params["resolution"][1]+1)
+            ballposition.write((params["resolution"][0]+1, params["resolution"][1]+1))
 
         # If the ip ip option is chosen, send the identified position via a UDP packet
         if params['ip'] is not None:
