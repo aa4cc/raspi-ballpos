@@ -8,13 +8,15 @@ import socket, struct
 import click
 import sys
 import os.path
+import logging
 
 try:
     # Add the parent directory to the path
     import os.path, sys
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
     from config import config, detectors
-except ImportError:
+except ImportError as ex:
+    logging.exception(ex)
     sys.exit('No default configuration file found')
 
 import ballposition
@@ -163,14 +165,14 @@ def main(**kwargs):
         with picamera.PiCamera() as camera:
             def position_callback(center):
                 # Write the measured position to the shred memory
-                if center:
-                    ballposition.write(center)
+                if center[0]:
+                    ballposition.write(center[0])
                 else:
                     ballposition.write((params["resolution"][0]+1, params["resolution"][1]+1))
                 if params["annotate"]:
                     camera.annotate_text = "Position: {}".format(center)
                 if params["overlay"] and center:
-                    camera.overlays[0].move(*center)
+                    camera.overlays[0].move(*center[0])
                 fps.update()
 
             proc = processor.Processor(detectors,position_callback)

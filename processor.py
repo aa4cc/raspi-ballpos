@@ -14,7 +14,10 @@ class Processor(io.BytesIO):
         for detector in detectors:
             cls = detector.pop('type')
             self.detectors.append(cls(processor=self, **detector))
-        print(self.detectors)
+
+        print("Active detectors:")
+        for i, d in enumerate(self.detectors):
+            print(" {}: {}".format(i,  d))
 
     def write(self, b):
         if params["verbose"] > 0:
@@ -26,12 +29,14 @@ class Processor(io.BytesIO):
         centers = self.processImage(image)
 
         if self.callback:
-            self.callback(center)
+            self.callback(centers)
         
         if params['verbose']:
             e2 = cv2.getTickCount()
             elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
-            print('Frame: {}, center {}, elapsed time: {}'.format(self.frame_number, center, elapsed_time))
+            print('Frame: {}, center {}, elapsed time: {}'.format(self.frame_number, centers, elapsed_time))
+
+        self.frame_number += 1;
 
 
     def processImage(self, image):
