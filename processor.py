@@ -1,6 +1,8 @@
 import io
 import numpy as np
 import cv2
+from profilehooks import profile
+import matplotlib.pyplot as plt
 
 class Processor(io.BytesIO):
     def __init__(self, detectors, callback=None):
@@ -15,10 +17,16 @@ class Processor(io.BytesIO):
             cls = detector.pop('type')
             self.detectors.append(cls(processor=self, **detector))
 
-        print("Active detectors:")
-        for i, d in enumerate(self.detectors):
-            print(" {}: {}".format(i,  d))
+        if self.detectors:
+            print("Active detectors:")
+            for d in self.detectors:
+                print(" {}:\t{}".format(d.name,  d))
+        else:
+            print('No detectors active')
 
+         #plt.ion()
+
+    @profile
     def write(self, b):
         if params["verbose"] > 0:
             e1 = cv2.getTickCount()
@@ -34,7 +42,7 @@ class Processor(io.BytesIO):
         if params['verbose']:
             e2 = cv2.getTickCount()
             elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
-            print('Frame: {}, center {}, elapsed time: {}'.format(self.frame_number, centers, elapsed_time))
+            print('Frame: {}, center {}, elapsed time: {:.1f}ms'.format(self.frame_number, centers, elapsed_time*1000))
 
         self.frame_number += 1;
 

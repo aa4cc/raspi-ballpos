@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import math
 import logging
+import matplotlib.pyplot as plt
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,8 @@ class Simple(Detector):
         self.tracking_window = kwargs["tracking_window"]
         self.tracking_window_halfsize = self.tracking_window//2
         self.processor = kwargs["processor"]
+        self.name = kwargs["name"]
+        self.debug = kwargs.get("debug", 0)
 
         print("Ball mass must be between {:.0f} px^2 and {:.0f} px^2".format(self.ballmasslim[0]/255, self.ballmasslim[1]/255))
         print("Image channel combination coefficients: ({})".format(self.color_coefs))
@@ -26,6 +29,13 @@ class Simple(Detector):
     def findTheBall(self, image, ball_size_lim = None, mask = None, denoise = True, kernel = None, iterations = 2):
         # take a linear combination of the color channels to get a grayscale image containg only images of a desired color
         im = np.clip(image[:,:,0]*self.color_coefs[0] + image[:,:,1]*self.color_coefs[1] + image[:,:,2]*self.color_coefs[2], 0, 255).astype(np.uint8) 
+
+
+        if self.debug > 0:
+            plt.imshow(im)
+            plt.colorbar()
+            plt.show()
+
 
         # apply a mask if it is given
         if mask is not None:
@@ -62,7 +72,8 @@ class Simple(Detector):
 
             center, im_thrs, im_denoised = self.findTheBall(image_dwn, ballmasslim_dwn, mask = self.processor.mask_dwn, denoise = False)
             if center is not None:
-                center = (self.downsample*center[0], self.downsample*center[1])   
+                center = (self.downsample*center[0], self.downsample*center[1])
+
 
             # Save the the region of interest image if the debug option is chosen, or ball not found
             if params['debug'] > 1 or (center is None and params["debug"]):

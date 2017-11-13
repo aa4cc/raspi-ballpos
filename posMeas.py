@@ -44,6 +44,14 @@ def gen_overlay(arg):
     except ValueError:
         raise ValueError('Argument "{}"is not valid overlay'.format(arg))
 
+def move_overlay(overlay, position):
+    overlay.window =(
+        overlay.offset[0]-overlay.center[0]+int(position[0]*overlay.scale),
+        overlay.offset[1]-overlay.center[1]+int(position[1]*overlay.scale),
+        overlay.size[0],
+        overlay.size[1])
+
+
 def parameter_checks():
     # Ball mass - ball is approximately 40 px in diameter in the image hence the mass should be somewhere around pi*20^2=1256.
     # The values are multiplied by 255 because the the pixels in the binary image have values 0 and 255 (weird, isn't it?).
@@ -71,7 +79,7 @@ def pre_camera_tasks():
         except ImportError:
             print("Libratry RPi.GPIO not found, light controll not possible! You can install it using 'sudo pip3 install rpi.gpio' to install library")
 
-def camera_setup(camera):
+def camera_setup(camera, processor):
     camera.resolution = params["resolution"]
     # Set the framerate appropriately; too fast and the image processors
     # will stall the image pipeline and crash the script
@@ -100,21 +108,22 @@ def camera_setup(camera):
                 h = screen_w/prev_r
                 w = int(screen_w)
 
-            offset_x = int((screen_w-w)/2)
-            offset_y = int((screen_h-h)/2)
+            offset = 0,0#int((screen_w-w)/2), int((screen_h-h)/2)
             scale = w/prev_w
 
-            preview = camera.start_preview(fullscreen=False, window=(offset_x,offset_y,w,h))
+            preview = camera.start_preview(fullscreen=False, window=(offset[0],offset[1],w,h))
 
             if params["overlay"]:
-                buff, size, format, center = gen_overlay(params["overlay"])
-                o=camera.add_overlay(buff, layer=3, alpha=params["overlay_alpha"], fullscreen=False, size=size, format=format, window=(0,0,size[0],size[1]))
+                for detector in processor.detectors:
+                    buff, size, format, center = gen_overlay(params["overlay"])
+                    o=camera.add_overlay(buff, layer=3, alpha=params["overlay_alpha"], fullscreen=False, size=size, format=format, window=(0,0,size[0],size[1]))
+                    o.scale = scale
+                    o.center = center
+                    o.offset = offset
+                    o.size = size
+                    move_overlay(o, (0,0))
+                    o.name = detector.name
 
-                def move_overlay(x,y, center_x=center[0], center_y=center[1]):
-                    o.window = (offset_x-center_x+int(x*scale), offset_y-center[1]+int(y*scale), size[0], size[1])
-
-                o.move = move_overlay
-                o.move(0,0)
         except NotImplementedError:
             print("Calculations for overlay not supported without X server (Cannot get monitor resolution)")
             params["overlay"] = None
@@ -163,21 +172,23 @@ def main(**kwargs):
     camera = None
     try:
         with picamera.PiCamera() as camera:
-            def position_callback(center):
+            def position_callback(centers):
                 # Write the measured position to the shred memory
-                if center[0]:
-                    ballposition.write(center[0])
+                if centers and centers[0]:
+                    ballposition.write(centers[0])
                 else:
                     ballposition.write((params["resolution"][0]+1, params["resolution"][1]+1))
-                if params["annotate"]:
-                    camera.annotate_text = "Position: {}".format(center)
-                if params["overlay"] and center:
-                    camera.overlays[0].move(*center[0])
+                if params["preview"] and params["annotate"]:
+                    camera.annotate_text = "Position:\n   {}".format("\n   ".join(map(str, centers)))
+                if params["preview"] and params["overlay"]:
+                    for overlay, center in zip(camera.overlays, centers):
+                        if center:
+                            move_overlay(overlay, center)
                 fps.update()
 
             proc = processor.Processor(detectors,position_callback)
 
-            camera_setup(camera)
+            camera_setup(camera, proc)
 
             if params['mask'] is not None:
                 if os.path.isfile(params['mask']):
@@ -192,13 +203,9 @@ def main(**kwargs):
             fps = FPS().start()
             print("Starting capture")
             camera.capture_sequence(proc, use_video_port=True, format="rgb")
-            fps.stop()
 
             if params["video_record"]:
                 camera.stop_recording(splitter_port=2)
-
-            print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-            print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
 
             if params["preview"]:
                 camera.stop_preview()
@@ -207,6 +214,10 @@ def main(**kwargs):
         print('Yes, hold on; I am trying to kill myself!')
 
     finally:
+        fps.stop()
+        print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+        print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+
         # Shut down the processors in an orderly fashion
         if camera is not None:
             camera.close()
