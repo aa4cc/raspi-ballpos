@@ -12,6 +12,7 @@ import sys
 import hooppos
 import math
 import os.path
+from screeninfo import get_monitors
 
 # Add the parent directory to the path
 import os.path, sys
@@ -184,7 +185,7 @@ def processImage(frame_number, image):
         # Set done to True if you want the script to terminate
         # at some point
         frame_number += 1
-        if frame_number >= params["num_frames"]:
+        if frame_number >= params["num_frames"] > 0:
             done=True
 
         fps.update()
@@ -192,9 +193,10 @@ def processImage(frame_number, image):
     return center
 
 class ImageProcessor(io.BytesIO):
-    def __init__(self):
+    def __init__(self, camera):
         super().__init__()
         self.frame_number = 0;
+        self.camera = camera
 
     def write(self, b):
 
@@ -213,13 +215,18 @@ class ImageProcessor(io.BytesIO):
                 center_to_print = center
             else:
                 center_to_print = ('-', '-')
-
             print('Frame: {}, center ({},{}), elapsed time: {}'.format(self.frame_number, center_to_print[0], center_to_print[1], elapsed_time))
+        if params["annotate"]:
+            self.camera.annotate_text = "Position: {}".format(center)
+
+        if params["overlay"] and center:
+            self.camera.overlays[0].move(*center)
+
         self.frame_number += 1        
 
 
-def streams():
-    processor = ImageProcessor()
+def streams(camera):
+    processor = ImageProcessor(camera)
 
     while not done:
         #e1 = cv2.getTickCount()
@@ -229,8 +236,20 @@ def streams():
         #elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
         #print('Freq : {}'.format(round(1/elapsed_time)))
 
+def gen_overlay(arg):
+    try:
+        size = int(arg)
+        x = size*32
+        y = size*32
+        a = np.zeros((x,y,3), dtype=np.uint8)
+        a[size*16, :, :] = 0xff
+        a[:, size*16, :] = 0xff
+        return a.tobytes(), a.shape[0:2], 'rgb', (int(a.shape[0]/2), int(a.shape[1]/2))
+    except ValueError:
+        raise ValueError('Argument "{}"is not valid overlay'.format(arg))
+
 @click.command()
-@click.option('--num-frames', '-n', default=1, help='Total number of frames to process')
+@click.option('--num-frames', '-n', default=0, help='Total number of frames to process')
 @click.option('--frame-rate', '-f', default=10, help='Number of frames per second to process')
 @click.option('--exposition-time', '-e', default=10, help='Exposition time (shutter speed) in milliseconds.')
 @click.option('--verbose', '-v', is_flag=True, default=False, help='Display time needed for processing of each frame and the measured position.')
@@ -249,6 +268,12 @@ def streams():
 @click.option('--mask', '-m',type=(str), default=None, help="Filename of mask to be applied on the captured images. The mask is assumed to be grayscale with values 255 for True and 0 for False.")
 @click.option('--lamp-control', '-l', type=int, default=None, help="Pin for control external lamp")
 @click.option('--lamp-delay', type=float, default=2, help="Pin for control external lamp")
+@click.option('--hflip/--no-hflip', is_flag=True, default=False, help="Horizontal flip of image")
+@click.option('--vflip/--no-vflip', is_flag=True, default=False, help="Vertial flip of image")
+@click.option('--annotate', '-a', default=None, help="Color of position in preview")
+@click.option('--console', is_flag=True, help="Start console instead of detection")
+@click.option('--overlay', '-o', default=None, help='Enable overlay')
+@click.option('--overlay-alpha', default=50, help='Overlay alpha')
 def main(**kwargs):
     global params, fps, udp_sock, mask, mask_dwn
 
@@ -285,14 +310,14 @@ def main(**kwargs):
             print('Invalid option for streaming settings. Images will not be streamed.')
             params['stream'] = None 
 
-        click.echo('Number of frames: %d' % params['num_frames'])
-        click.echo('FPS: %d' % params['frame_rate'])
+        click.echo('Number of frames: {num_frames}'.format(**params))
+        click.echo('FPS: {frame_rate}'.format(**params))
 
         if params['ip'] is not None:
             aa = re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", params['ip'])
             if aa is not None:
                 params['ip'] = aa.group()
-                click.echo('IP: %s, port: %d' % (params['ip'], params['port']))
+                click.echo('IP: {ip}:{port}'.format(**params))
                 udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
             else:
                 params['ip'] = None
@@ -316,9 +341,47 @@ def main(**kwargs):
             camera.framerate = params['frame_rate']        
             camera.shutter_speed = params['exposition_time']*1000
             camera.iso = 200
+            camera.hflip = params["hflip"]
+            camera.vflip = params["vflip"]
+
+            if params["annotate"]:
+                camera.annotate_foreground = picamera.Color(params["annotate"])
+                camera.annotate_text = "Starting detection..."
 
             if params['preview']:
-                camera.start_preview()
+                try:
+                    screen_w, screen_h = get_monitors()[0].width, get_monitors()[0].height
+                    prev_w, prev_h = camera.resolution[0], camera.resolution[1]
+
+                    screen_r = screen_w/screen_h
+                    prev_r = prev_w/prev_h
+
+                    if screen_r > prev_r:
+                        h = screen_h
+                        w = int(screen_h*prev_r)
+                    else:
+                        h = screen_w/prev_r
+                        w = int(screen_w)
+
+                    offset_x = int((screen_w-w)/2)
+                    offset_y = int((screen_h-h)/2)
+                    scale = w/prev_w
+
+                    preview = camera.start_preview(fullscreen=False, window=(offset_x,offset_y,w,h))
+
+                    if params["overlay"]:
+                        buff, size, format, center = gen_overlay(params["overlay"])
+                        o=camera.add_overlay(buff, layer=3, alpha=params["overlay_alpha"], fullscreen=False, size=size, format=format, window=(0,0,size[0],size[1]))
+
+                        def move_overlay(x,y, center_x=center[0], center_y=center[1]):
+                            o.window = (offset_x-center_x+int(x*scale), offset_y-center[1]+int(y*scale), size[0], size[1])
+
+                        o.move = move_overlay
+                        o.move(0,0)
+                except NotImplementedError:
+                    print("Calculations for overlay not supported without X server (Cannot get monitor resolution)")
+                    params["overlay"] = None
+                    preview = camera.start_preview()
 
             # Let the camera warm up
             time.sleep(2)
@@ -336,8 +399,20 @@ def main(**kwargs):
                 camera.start_recording('{}video.h264'.format(params['img_path']), splitter_port=2, resize=params["resolution"])
 
             fps = FPS().start()
-            
-            camera.capture_sequence(streams(), use_video_port=True, format="rgb")
+
+            if params["console"]:
+                import code
+                try:
+                    import readline
+                except ImportError:
+                    print("Module readline not available.")
+                else:
+                    import rlcompleter
+                    readline.parse_and_bind("tab: complete")
+                code.interact(local=dict(globals(), **locals()))
+                return
+
+            camera.capture_sequence(streams(camera), use_video_port=True, format="rgb")
 
             if params["video_record"]:
                 camera.stop_recording(splitter_port=2)
