@@ -108,7 +108,7 @@ def camera_setup(camera, processor):
                 h = screen_w/prev_r
                 w = int(screen_w)
 
-            offset = 0,0#int((screen_w-w)/2), int((screen_h-h)/2)
+            offset = int((screen_w-w)/2), int((screen_h-h)/2)
             scale = w/prev_w
 
             preview = camera.start_preview(fullscreen=False, window=(offset[0],offset[1],w,h))
@@ -173,11 +173,13 @@ def main(**kwargs):
     try:
         with picamera.PiCamera() as camera:
             def position_callback(centers):
-                # Write the measured position to the shred memory
-                if centers and centers[0]:
-                    ballposition.write(centers[0])
-                else:
-                    ballposition.write((params["resolution"][0]+1, params["resolution"][1]+1))
+                # Write the measured position to the shared memory
+                for i, center in enumerate(centers):
+                    if center:
+                        ballposition.write(center, offset=i)
+                    else:
+                        ballposition.write((params["resolution"][0]+1, params["resolution"][1]+1), offset=i)
+
                 if params["preview"] and params["annotate"]:
                     camera.annotate_text = "Position:\n   {}".format("\n   ".join(map(str, centers)))
                 if params["preview"] and params["overlay"]:
@@ -185,6 +187,8 @@ def main(**kwargs):
                         if center:
                             move_overlay(overlay, center)
                 fps.update()
+
+            ballposition.init(len(detectors))
 
             proc = processor.Processor(detectors,position_callback)
 

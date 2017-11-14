@@ -30,12 +30,10 @@ class Simple(Detector):
         # take a linear combination of the color channels to get a grayscale image containg only images of a desired color
         im = np.clip(image[:,:,0]*self.color_coefs[0] + image[:,:,1]*self.color_coefs[1] + image[:,:,2]*self.color_coefs[2], 0, 255).astype(np.uint8) 
 
-
-        if self.debug > 0:
+        if self.debug ==1:
             plt.imshow(im)
             plt.colorbar()
             plt.show()
-
 
         # apply a mask if it is given
         if mask is not None:

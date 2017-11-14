@@ -3,7 +3,12 @@
 import sharemem
 import struct
 
-mem = sharemem.open(3145914, 10)
+format = "hh"
+mem = None
+
+def init(count=1):
+	global mem
+	mem = sharemem.open(3145914, count*struct.calcsize(format))
 
 def unpack(format, offset=0):
 	return struct.unpack(format, sharemem.read(mem+offset, struct.calcsize(format)))
@@ -11,11 +16,11 @@ def unpack(format, offset=0):
 def pack(format, *args, offset=0):
 	sharemem.write(mem+offset, struct.pack(format, *args))
 
-def read():
-	return unpack("hh")
+def read(offset=0):
+	return unpack(format, offset=offset*struct.calcsize(format))
 
-def write(pos):
-	pack("hh", *pos);
+def write(pos, offset=0):
+	pack(format, *pos, offset=offset*struct.calcsize(format))
 
 
 if __name__ == '__main__':
