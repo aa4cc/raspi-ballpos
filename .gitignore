@@ -117,3 +117,5 @@ config.py
 
 # Ignore stored images
 *.png
+*.elf
+*_ert_rtw

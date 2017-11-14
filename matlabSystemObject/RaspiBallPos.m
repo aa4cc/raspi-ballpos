@@ -22,6 +22,10 @@ classdef RaspiBallPos < matlab.System ...
         framerate = 50;
         % Number of frames
         N = 1000;
+        % path Path of camera script
+        path = '';
+        % Number of objects
+        objects = 1;
     end
     
     properties (Nontunable, Logical)
@@ -49,21 +53,22 @@ classdef RaspiBallPos < matlab.System ...
             else
                 % Call C-function implementing device initialization
                 coder.cinclude('raspiballpos.h');
-                coder.ceval('raspiballpos_init', obj.shm_key, obj.execScript, obj.framerate, obj.N);
+                coder.ceval('raspiballpos_init', obj.shm_key, obj.execScript, [obj.path 0], obj.framerate, obj.N);
             end
         end
         
-        function [x, y] = stepImpl(obj,u) %#ok<INUSD>
-            x = uint32(0);
-            y = uint32(0);
-            
+        function varargout = stepImpl(obj) 
+            positions = zeros(2, obj.objects, 'uint32');
             if isempty(coder.target)
                 % Place simulation output code here 
             else
                 % Call C-function implementing device output
                 coder.ceval('read_pos', ...
-                    coder.wref(x), ...
-                    coder.wref(y));
+                    coder.wref(positions), ...
+                    obj.objects);
+            end
+            for k=1:obj.objects
+                varargout{k} = positions(:,k)';
             end
         end
         
@@ -83,8 +88,8 @@ classdef RaspiBallPos < matlab.System ...
             num = 0;
         end
         
-        function num = getNumOutputsImpl(~)
-            num = 2;
+        function num = getNumOutputsImpl(obj)
+            num = obj.objects;
         end
         
                 
@@ -92,9 +97,10 @@ classdef RaspiBallPos < matlab.System ...
             flag = true;
         end
         
-        function [o1, o2] = isOutputFixedSizeImpl(~,~)
-            o1 = true;
-            o2 = true;
+        function varargout = isOutputFixedSizeImpl(obj,~)
+            for k = 1:obj.objects
+               varargout{k} = true;
+            end
         end
         
         function icon = getIconImpl(~)
@@ -102,24 +108,28 @@ classdef RaspiBallPos < matlab.System ...
             icon = 'RaspiBallPos';
         end
         
-        function [o1, o2] = isOutputComplexImpl(~)
-            o1 = false;
-            o2 = false;
+        function varargout = isOutputComplexImpl(obj)
+            for k = 1:obj.objects
+               varargout{k} = false;
+            end
         end
         
-        function [sz1, sz2] = getOutputSizeImpl(~)
-            sz1 = [1,1];
-            sz2 = [1,1];
+        function varargout = getOutputSizeImpl(obj)
+            for k = 1:obj.objects
+               varargout{k} = [1,2];
+            end
         end
         
-        function [o1, o2] = getOutputDataTypeImpl(~)
-            o1 = 'uint32';
-            o2 = 'uint32';
+        function varargout = getOutputDataTypeImpl(obj)
+            for k = 1:obj.objects
+               varargout{k} = 'uint32';
+            end
         end
         
-        function [outputName1, outputName2]  = getOutputNamesImpl(~)
-            outputName1 = 'x [px]';
-            outputName2 = 'y [px]';
+        function varargout = getOutputNamesImpl(obj)
+            for k = 1:obj.objects
+               varargout{k} = sprintf('Position %d [x,y]', k);
+            end
         end        
     end
     
@@ -145,7 +155,7 @@ classdef RaspiBallPos < matlab.System ...
         function updateBuildInfo(buildInfo, context)
             if context.isCodeGenTarget('rtw')
                 % Update buildInfo
-                srcDir = fullfile(fileparts(mfilename('fullpath')),'src'); %#ok
+                srcDir = fullfile(fileparts(mfilename('fullpath')),'src');
                 includeDir = fullfile(fileparts(mfilename('fullpath')),'include');
                 addIncludePaths(buildInfo,includeDir);
                 % Use the following API's to add include files, sources and

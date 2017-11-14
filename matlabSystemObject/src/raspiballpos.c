@@ -1,18 +1,20 @@
 #include "raspiballpos.h"
 
-void raspiballpos_init(uint32_T shm_key, boolean_T execScript, uint32_T fps, uint32_T N) {
+void raspiballpos_init(uint32_T shm_key, boolean_T execScript, char *script_path, uint32_T fps, uint32_T N) {
     if (execScript) {
         script_pid = fork();
         if(script_pid == 0)
         {
             char arg1[10];
             char arg2[10];
+            char arg3[10];
             int n;
             n = sprintf(arg1, "-f %d", fps);
             n = sprintf(arg2, "-n %d", N);
+            n = sprintf(arg3, "-v");
             
             printf("Running the script\n");
-            execl("/home/pi/flying-ball/raspi-ballpos/posMeas.py", "posMeas.py", arg1, arg2, NULL);
+            execl(script_path, "posMeas.py", arg1, arg2, arg3, NULL);
         } else if (script_pid == -1) {
             printf("An error occured during starting the measuring script.\n");
         } else {
@@ -67,10 +69,13 @@ void shm_terminate() {
     }
 }
 
-void read_pos(uint32_T * x, uint32_T * y) {
-    // Update Output:
-    meas_pos = (position*)shm;
 
-    *x = meas_pos->x;
-    *y = meas_pos->y;
+void read_pos(uint32_T * data, uint8_T len){
+    // Update Output:
+    int k = 0;
+    position *shm_pos = (position*)shm;
+    for(k=0; k<len; k++){
+        data[k*2] = shm_pos[k].x;
+        data[(k*2)+1] = shm_pos[k].y;
+    }
 }
