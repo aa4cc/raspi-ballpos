@@ -53,6 +53,7 @@ class Simple(Detector):
         M = cv2.moments(im_denoised)
         if M['m00'] > 0 and (ball_size_lim is None  or ball_size_lim[0] < M['m00'] < ball_size_lim[1]):
             center = ( (int(M['m10'] / M['m00']), int(M['m01'] / M['m00'])) )
+            #print("Ball mass:", M['m00'])
         else:
             print("Ball mass out of mass ranges.")
             center = None

@@ -9,6 +9,7 @@ import click
 import sys
 import os.path
 import logging
+from fractions import Fraction
 
 try:
     # Add the parent directory to the path
@@ -132,15 +133,15 @@ def camera_setup(camera, processor):
     # Let the camera warm up
     time.sleep(2)
 
-    print("Exposition time: {}".format(camera.exposure_speed/1000))
-    print("camera.awb_gains: {}".format(camera.awb_gains))
-    print("camera.iso: {}".format(camera.iso))
-
     # Now fix the values
     camera.exposure_mode = 'off'
     g = camera.awb_gains
     camera.awb_mode = 'off'
-    camera.awb_gains = g
+    camera.awb_gains = (Fraction(311, 256), Fraction(550, 256))#g
+
+    print("Exposition time: {}".format(camera.exposure_speed/1000))
+    print("camera.awb_gains: {}".format(camera.awb_gains))
+    print("camera.iso: {}".format(camera.iso))
 
 @click.command()
 @click.option('--num-frames', '-n', default=0, help='Total number of frames to process')

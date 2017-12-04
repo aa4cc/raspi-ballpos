@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 from profilehooks import profile
 import matplotlib.pyplot as plt
+import sender
 
 class Processor(io.BytesIO):
     def __init__(self, detectors, callback=None):
@@ -24,8 +25,6 @@ class Processor(io.BytesIO):
         else:
             print('No detectors active')
 
-         #plt.ion()
-
     @profile
     def write(self, b):
         if params["verbose"] > 0:
@@ -43,6 +42,11 @@ class Processor(io.BytesIO):
             e2 = cv2.getTickCount()
             elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
             print('Frame: {}, center {}, elapsed time: {:.1f}ms'.format(self.frame_number, centers, elapsed_time*1000))
+
+        # if self.frame_number > 30:
+        #     cv2.imwrite("img.png",image)
+        #     import sys
+        #     sys.exit(0)
 
         self.frame_number += 1;
 
