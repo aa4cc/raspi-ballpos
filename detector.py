@@ -28,18 +28,16 @@ class Simple(Detector):
 
     def findTheBall(self, image, ball_size_lim = None, mask = None, denoise = True, kernel = None, iterations = 2):
         # take a linear combination of the color channels to get a grayscale image containg only images of a desired color
-        im = np.clip(image[:,:,0]*self.color_coefs[0] + image[:,:,1]*self.color_coefs[1] + image[:,:,2]*self.color_coefs[2], 0, 255).astype(np.uint8) 
+        self.im = np.clip(image[:,:,0]*self.color_coefs[0] + image[:,:,1]*self.color_coefs[1] + image[:,:,2]*self.color_coefs[2], 0, 255).astype(np.uint8) 
 
         if self.debug ==1:
-            plt.imshow(im)
-            plt.colorbar()
-            plt.show()
+            self.plot()
 
         # apply a mask if it is given
         if mask is not None:
-            im = cv2.bitwise_and(im, im, mask = mask)
+            self.im = cv2.bitwise_and(self.im, self.im, mask = mask)
 
-        im_thrs = cv2.inRange(im, self.threshold,255)
+        im_thrs = cv2.inRange(self.im, self.threshold,255)
         if denoise:
             # im_denoised = cv2.dilate(im_thrs, kernel, iterations)
             # im_denoised = cv2.erode(im_denoised, kernel, iterations)
@@ -119,3 +117,8 @@ class Simple(Detector):
             return center
         except Exception as e:
             logger.exception(e)
+
+    def plot(self):
+        plt.imshow(self.im)
+        plt.colorbar()
+        plt.show()
