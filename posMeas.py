@@ -137,10 +137,15 @@ def camera_setup(camera, processor):
     camera.exposure_mode = 'off'
     g = camera.awb_gains
     camera.awb_mode = 'off'
-    camera.awb_gains = (Fraction(311, 256), Fraction(550, 256))#g
+
+    if all(params["white_balance"]):
+        print("Manual white balance: ", params["white_balance"])
+        camera.awb_gains = params["white_balance"]
+    else:
+        print("Fixed auto white balance: {}".format(camera.awb_gains))
+        camera.awb_gains = g
 
     print("Exposition time: {}".format(camera.exposure_speed/1000))
-    print("camera.awb_gains: {}".format(camera.awb_gains))
     print("camera.iso: {}".format(camera.iso))
 
 @click.command()
@@ -162,6 +167,9 @@ def camera_setup(camera, processor):
 @click.option('--overlay', '-o', default=None, help='Enable overlay')
 @click.option('--overlay-alpha', default=50, help='Overlay alpha')
 @click.option('--iso', default=200, help="ISO for camera")
+@click.option('--image-server', '-i', is_flag=True, help="Activate Image server")
+@click.option('--white-balance', '-w', type=(float, float), default=(None, None))
+@click.option('--interactive', is_flag=True)
 def main(**kwargs):
     global params
     params = kwargs
@@ -171,6 +179,7 @@ def main(**kwargs):
     parameter_checks()
     pre_camera_tasks()
     camera = None
+    proc = None
     try:
         with picamera.PiCamera() as camera:
             def position_callback(centers):
@@ -207,7 +216,14 @@ def main(**kwargs):
 
             fps = FPS().start()
             print("Starting capture")
-            camera.capture_sequence(proc, use_video_port=True, format="rgb")
+            if not params["interactive"]:
+                camera.capture_sequence(proc, use_video_port=True, format="rgb")
+            else:
+                import threading
+                import code
+                import matplotlib.pyplot as plt
+                threading.Thread(target=camera.capture_sequence, args=(proc,), kwargs={"use_video_port": True, "format":"rgb"}).start();
+                code.interact(local=locals())
 
             if params["video_record"]:
                 camera.stop_recording(splitter_port=2)
@@ -217,7 +233,6 @@ def main(**kwargs):
 
     except (KeyboardInterrupt, SystemExit):
         print('Yes, hold on; I am trying to kill myself!')
-
     finally:
         fps.stop()
         print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
@@ -226,6 +241,9 @@ def main(**kwargs):
         # Shut down the processors in an orderly fashion
         if camera is not None:
             camera.close()
+
+        if proc is not None:
+            proc.stop()
 
         if params['lamp_control'] is not None and GPIO:
             GPIO.output(params['lamp_control'], False);
