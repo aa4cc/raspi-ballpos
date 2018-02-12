@@ -181,12 +181,13 @@ def main(**kwargs):
     camera = None
     proc = None
     try:
+        fps = FPS().start()
         with picamera.PiCamera() as camera:
             def position_callback(centers):
                 # Write the measured position to the shared memory
                 for i, center in enumerate(centers):
                     if center:
-                        ballposition.write(center, offset=i)
+                        ballposition.write(map(int, center), offset=i)
                     else:
                         ballposition.write((params["resolution"][0]+1, params["resolution"][1]+1), offset=i)
 
@@ -214,7 +215,7 @@ def main(**kwargs):
             if params["video_record"]:
                 camera.start_recording('{}video.h264'.format(params['img_path']), splitter_port=2, resize=params["resolution"])
 
-            fps = FPS().start()
+            fps.start()
             print("Starting capture")
             if not params["interactive"]:
                 camera.capture_sequence(proc, use_video_port=True, format="rgb")
