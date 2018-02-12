@@ -122,3 +122,12 @@ class Simple(Detector):
         plt.imshow(self.im)
         plt.colorbar()
         plt.show()
+
+class LEDDetector(Detector):
+    def __init__(self, **kwargs):
+        self.position = kwargs["position"]
+        self.name = kwargs["name"]
+
+    def processImage(self, frame_number, image):
+        pixel = image[self.position[0],self.position[1],:]
+        return pixel[0], pixel[1]
