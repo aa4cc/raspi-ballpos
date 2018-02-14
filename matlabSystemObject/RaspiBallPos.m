@@ -17,7 +17,7 @@ classdef RaspiBallPos < matlab.System ...
     
     properties (Nontunable)
         % Key to shared memory segment
-        shm_key = 3145914;
+        shm_key = 3145914;  
         % Framerate
         framerate = 50;
         % Number of frames
@@ -52,8 +52,8 @@ classdef RaspiBallPos < matlab.System ...
                 % Place simulation setup code here
             else
                 % Call C-function implementing device initialization
-                coder.cinclude('raspiballpos.h');
-                coder.ceval('raspiballpos_init', obj.shm_key, obj.execScript, [obj.path 0], obj.framerate, obj.N);
+                coder.cinclude('raspiballpos.h')
+                coder.ceval('raspiballpos_init', obj.shm_key, obj.execScript, [obj.path 0], obj.framerate, obj.N, obj.objects);
             end
         end
         
@@ -68,7 +68,7 @@ classdef RaspiBallPos < matlab.System ...
                     obj.objects);
             end
             for k=1:obj.objects
-                varargout{k} = positions(:,k)';
+                varargout{k} = double(positions(:,k)')/100;
             end
         end
         
@@ -122,7 +122,7 @@ classdef RaspiBallPos < matlab.System ...
         
         function varargout = getOutputDataTypeImpl(obj)
             for k = 1:obj.objects
-               varargout{k} = 'uint32';
+               varargout{k} = 'double';
             end
         end
         
@@ -160,7 +160,7 @@ classdef RaspiBallPos < matlab.System ...
                 addIncludePaths(buildInfo,includeDir);
                 % Use the following API's to add include files, sources and
                 % linker flags
-%                 addIncludeFiles(buildInfo,'motor_driver.h',includeDir);
+                addIncludeFiles(buildInfo,'raspiballpos.h',includeDir);
                 addSourceFiles(buildInfo,'raspiballpos.c',srcDir);
 %                 addLinkFlags(buildInfo,{'-lwiringPi'});
                 %addLinkObjects(buildInfo,'sourcelib.a',srcDir);
