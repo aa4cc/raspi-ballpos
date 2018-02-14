@@ -1,7 +1,8 @@
 #include "raspiballpos.h"
 
-void raspiballpos_init(uint32_T shm_key, boolean_T execScript, char *script_path, uint32_T fps, uint32_T N) {
-    if (execScript) {
+void raspiballpos_init(uint32_T shm_key, boolean_T execScript, char *script_path, uint32_T fps, uint32_T N, uint32_T devices) {
+    printf("Execution of python code select: %d", execScript);
+    if (0) {
         script_pid = fork();
         if(script_pid == 0)
         {
@@ -25,7 +26,7 @@ void raspiballpos_init(uint32_T shm_key, boolean_T execScript, char *script_path
         script_pid = 0;
     }
 
-    shm_init(shm_key);
+    shm_init(shm_key, devices);
 }
 
 void raspiballpos_terminate() {
@@ -37,7 +38,7 @@ void raspiballpos_terminate() {
     shm_terminate();
 }
 
-void shm_init(uint32_T shm_key) {
+void shm_init(uint32_T shm_key, uint32_T n) {
     int shmid;
     key_t key;
     key = shm_key;
@@ -45,8 +46,8 @@ void shm_init(uint32_T shm_key) {
     /*
      * Locate the segment.
      */
-    if ((shmid = shmget(key, 2*sizeof(*meas_pos), 0666)) < 0) {
-        fprintf(stderr, "An error occured during initialization raspi-ballpos system object.");
+    if ((shmid = shmget(key, n*sizeof(*meas_pos), 0666)) < 0) {
+        fprintf(stderr, "An error occured during initialization raspi-ballpos system object.\n %d (shmget)\n Key: %d,\n size: %d,\n mod: 0666\n", shmid, key, 2*sizeof(*meas_pos));
         exit(1);
     }
     
@@ -54,7 +55,7 @@ void shm_init(uint32_T shm_key) {
      * Now we attach the segment to our data space.
      */
     if ((shm = shmat(shmid, NULL, 0)) == (char *) -1) {
-        fprintf(stderr, "An error occured during initialization raspi-ballpos system object.");
+        fprintf(stderr, "An error occured during initialization raspi-ballpos system object. (shmat)\n");
         exit(1);
     }
 }
@@ -64,7 +65,7 @@ void shm_terminate() {
      * Detach the segment.
      */
     if (shmdt(shm) == -1) {
-        fprintf(stderr, "An error occured during deinitialization raspi-ballpos system object.");
+        fprintf(stderr, "An error occured during deinitialization raspi-ballpos system object.\n");
         return;
     }
 }
