@@ -3,7 +3,6 @@ import numpy as np
 import cv2
 import math
 import logging
-import matplotlib.pyplot as plt
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +49,7 @@ class Simple(Detector):
 
         M = cv2.moments(im_denoised)
         if M['m00'] > 0 and (ball_size_lim is None  or ball_size_lim[0] < M['m00'] < ball_size_lim[1]):
-            center = ( (int(M['m10'] / M['m00']), int(M['m01'] / M['m00'])) )
+            center =  M['m10'] / M['m00'], M['m01'] / M['m00']
             #print("Ball mass:", M['m00'])
         else:
             print("Ball mass out of mass ranges.")
@@ -69,7 +68,7 @@ class Simple(Detector):
 
             center, im_thrs, im_denoised = self.findTheBall(image_dwn, ballmasslim_dwn, mask = self.processor.mask_dwn, denoise = False)
             if center is not None:
-                center = (self.downsample*center[0], self.downsample*center[1])
+                center = int(self.downsample*center[0]), int(self.downsample*center[1])
 
 
             # Save the the region of interest image if the debug option is chosen, or ball not found
@@ -119,6 +118,7 @@ class Simple(Detector):
             logger.exception(e)
 
     def plot(self):
+    	import matplotlib.pyplot as plt
         plt.imshow(self.im)
         plt.colorbar()
         plt.show()

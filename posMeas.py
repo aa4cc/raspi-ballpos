@@ -187,7 +187,7 @@ def main(**kwargs):
                 # Write the measured position to the shared memory
                 for i, center in enumerate(centers):
                     if center:
-                        ballposition.write(map(int, center), offset=i)
+                        ballposition.write((int(center[0]*100), int(center[1]*100)), offset=i)
                     else:
                         ballposition.write((params["resolution"][0]+1, params["resolution"][1]+1), offset=i)
 

@@ -3,7 +3,7 @@
 import sharemem
 import struct
 
-format = "hh"
+format = "HH"
 mem = None
 
 def init(count=1):

@@ -47,7 +47,10 @@ class Processor(io.BytesIO):
         if params['verbose']:
             e2 = cv2.getTickCount()
             elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
-            print('Frame: {}, center {}, elapsed time: {:.1f}ms'.format(self.frame_number, centers, elapsed_time*1000))
+
+            c = ", ".join("({x:6.2f}, {y:6.2f})".format(x=center[0], y=center[1]) if center else "None" for center in centers)
+
+            print('Frame: {}, center [{}], elapsed time: {:.1f}ms'.format(self.frame_number, c, elapsed_time*1000))
 
         if self.image_server:
             self.image_server.writeImage(self.image)
