@@ -118,7 +118,7 @@ class Simple(Detector):
             logger.exception(e)
 
     def plot(self):
-    	import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt
         plt.imshow(self.im)
         plt.colorbar()
         plt.show()
