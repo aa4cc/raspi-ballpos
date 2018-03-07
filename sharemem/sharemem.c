@@ -1,108 +1,340 @@
 #include <Python.h>
-
-#include <sys/types.h>
+#include "structmember.h"
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <stdio.h>
-#include <stdint.h>
+#include <sys/types.h>
+#include <sys/sem.h>
 
-#define SIZE_LIMIT 100
+#define SIZE_LIMIT 1000
 
-static PyObject * sh_open(PyObject * self, PyObject * args){
-    key_t key;
-    size_t size;
-    int opts=NULL;
-    if(!PyArg_ParseTuple(args, "ii|i", &key, &size, &opts)){
-        PyErr_SetString(PyExc_TypeError,"Required arguments not found");
-        return NULL;
-    }
+union semun {
+    int              val;    /* Value for SETVAL */
+    struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
+    unsigned short  *array;  /* Array for GETALL, SETALL */
+    struct seminfo  *__buf;  /* Buffer for IPC_INFO
+                               (Linux specific) */
+};
 
-    if (opts==0){
-        opts = IPC_CREAT;
-    }
+typedef enum{
+    UNLOCKED,
+    LOCKED
+} lock_t;
 
-    if (size > SIZE_LIMIT) {
-        PyErr_SetString(PyExc_TypeError,"Size is bigger than maximum.");
-        return NULL;
-    }
-
+typedef struct {
+    PyObject_HEAD
+    unsigned int key;
     int shmid;
-    if ((shmid = shmget(key, size, IPC_CREAT | 0666)) < 0) {
+    size_t size;
+    unsigned int mode;
+    void *ptr;
+    int semaphore;
+    lock_t lock;
+    int created;
+} SharedMemory;
+
+static int lock(SharedMemory* self)
+{
+    if(self->lock==LOCKED){
+        PyErr_SetString(PyExc_RuntimeError,"Already locked");
+        return -1;
+    }
+
+    struct sembuf sb = {0, -1, 0}; /* set to allocate resource */
+    if (semop(self->semaphore, &sb, 1) == -1) {
+        PyErr_SetString(PyExc_RuntimeError,"Lock semaphore error");
+        return -1;
+    }
+    self->lock=LOCKED;
+    return 0;
+}
+
+static int unlock(SharedMemory* self)
+{
+    if(self->lock==UNLOCKED){
+        PyErr_SetString(PyExc_RuntimeError,"Already unlocked");
+        return -1;
+    }
+
+    struct sembuf sb = {0, 1, 0}; /* set to deallocate resource */
+    if (semop(self->semaphore, &sb, 1) == -1) {
+        PyErr_SetString(PyExc_RuntimeError,"Unlock semaphore error");
+        return -1;
+    }
+    self->lock=UNLOCKED;
+    return 0;
+}
+
+static void
+SharedMemory_dealloc(SharedMemory* self)
+{
+    if(self->ptr){
+        //Remove shared memory
+        shmdt(self->ptr);
+        if(self->created){
+            shmctl(self->shmid, IPC_RMID, NULL);
+            printf("Marking SharedMemory to destroy\n");
+        }
+    }
+    if(self->semaphore != -1){
+        union semun arg;
+        if(self->created){
+            /* remove semaphore */
+            semctl(self->semaphore, 0, IPC_RMID, arg);
+            printf("Marking semaphore to destroy\n");
+        }   
+    }
+
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+static PyObject *
+SharedMemory_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    SharedMemory *self;
+
+    self = (SharedMemory *)type->tp_alloc(type, 0);
+    if (self != NULL) {
+        self->key=0;
+        self->size=0;
+        self->shmid=-1;
+        self->mode=0666;
+        self->ptr = NULL;
+        self->semaphore=-1;
+        self->lock = LOCKED;
+        self->created=1;
+    }
+
+    return (PyObject *)self;
+}
+
+static int
+SharedMemory_init(SharedMemory *self, PyObject *args, PyObject *kwds)
+{
+    static char *kwlist[] = {"key", "size", "create", "mode", NULL};
+
+    if (! PyArg_ParseTupleAndKeywords(args, kwds, "II|pI", kwlist,
+                                      &self->key, &self->size, &self->created, &self->mode))
+        return -1;
+
+    printf("Value of self->created=%d\n", self->created);
+
+    unsigned int opts = self->mode;
+    if (self->created){
+        opts |= IPC_CREAT;
+    }
+
+    if (self->size <= 0) {
+        PyErr_SetString(PyExc_ValueError,"Size must be greater than 0.");
+        return -1;
+    }
+
+    if (self->size > SIZE_LIMIT) {
+        char buffer[100];
+        sprintf(buffer, "Size is bigger than maximum (size>%d).", SIZE_LIMIT);
+        PyErr_SetString(PyExc_ValueError,buffer);
+        return -1;
+    }
+
+    if ((self->shmid = shmget(self->key, self->size, opts)) < 0) {
         PyErr_SetString(PyExc_RuntimeError,"Syscall to shmget returned errorcode, getmemory failed");
-        return NULL;
+        return -1;
     }
 
-    void *shm;
     // Now we attach the segment to our data space.
-    if ((shm = shmat(shmid, NULL, 0)) == (char *) -1) {
+    if ((self->ptr = shmat(self->shmid, NULL, 0)) == (char *) -1) {
         PyErr_SetString(PyExc_RuntimeError,"Syscall to shmat returned errorcode, attaching failed");
+        return -1;
+    }
+
+    if (self->created){
+        memset(self->ptr, 0, self->size);
+    }
+
+    /* create a semaphore set with 1 semaphore: */
+    if ((self->semaphore = semget(self->key, 1, opts)) == -1) {
+        PyErr_SetString(PyExc_RuntimeError,"Syscall to semget returned errorcode, getsemaphore failed");
+        return -1;
+    }
+
+    /* initialize semaphore #0 to 1: */
+    union semun arg;
+    arg.val = 1;
+    if (semctl(self->semaphore, 0, SETVAL, arg) == -1) {
+        PyErr_SetString(PyExc_RuntimeError,"Syscall to semctl returned errorcode, setup semaphore failed");
+        return -1;
+    }
+    self->lock = UNLOCKED;
+    return 0;
+}
+
+
+static PyMemberDef SharedMemory_members[] = {
+    {"key", T_INT, offsetof(SharedMemory, key), READONLY,
+     "Shared memory key number"},
+    {"mode", T_INT, offsetof(SharedMemory, mode), READONLY,
+     "Shared memory access mode"},
+    {"shmid", T_INT, offsetof(SharedMemory, shmid), READONLY,
+     "Shared memory access mode"},
+    {"ptr", T_INT, offsetof(SharedMemory, ptr), READONLY,
+     "Shared memory pointer"},
+    {"size", T_INT, offsetof(SharedMemory, size), READONLY,
+     "Shared memory size"},
+    {"semaphore", T_INT, offsetof(SharedMemory, semaphore), READONLY,
+     "Semaphore id"},
+    {NULL}  /* Sentinel */
+};
+
+static PyObject *
+SharedMemory_lock(SharedMemory* self)
+{
+    if(lock(self)<0) return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject *
+SharedMemory_unlock(SharedMemory* self)
+{
+    if(unlock(self)<0) return NULL;
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject * SharedMemory_read(SharedMemory* self, PyObject *args, PyObject *kwds){
+    size_t length = 1;
+    size_t offset = 0;
+    int lockme=1;
+
+    static char *kwlist[] = {"length", "offset", "lock", NULL};
+    if (! PyArg_ParseTupleAndKeywords(args, kwds, "|IIp", kwlist,
+                                      &length, &offset, &lockme))
+        return NULL;
+
+    if(length+offset > self->size){
+        PyErr_SetString(PyExc_RuntimeError,"Accesing data outside Sharemem area");
         return NULL;
     }
 
-    memset(shm, 'X', size);
+    if(lockme)
+        if(lock(self)<0)
+            return NULL;
 
-    return Py_BuildValue("i", (unsigned int) shm);
+    PyObject *buffer = Py_BuildValue("y#", self->ptr+offset, length);
+
+    if(lockme)
+        if(unlock(self)<0)
+            return NULL;
+
+    return buffer;
 }
 
-static PyObject * sh_read(PyObject * self, PyObject * args){
-    void *shm;
-    size_t len; 
-    if(!PyArg_ParseTuple(args, "ii", &shm, &len)){
-        PyErr_SetString(PyExc_TypeError,"Required argument address not found");
-        return NULL;
-    }
-
-    return Py_BuildValue("y#", shm, len);
-}
-
-static PyObject * sh_write(PyObject * self, PyObject * args){
-    void *shm;
+static PyObject * SharedMemory_write(SharedMemory* self, PyObject *args, PyObject *kwds){
+    size_t offset = 0;
     Py_buffer b;
-    if(!PyArg_ParseTuple(args, "iy*", &shm, &b)){
-        PyErr_SetString(PyExc_TypeError,"Required argument address not found");
+    int lockme=1;
+    static char *kwlist[] = {"data", "offset", "lock", NULL};
+    if (! PyArg_ParseTupleAndKeywords(args, kwds, "y*|Ip", kwlist,
+                                      &b, &offset, &lockme))
+        return NULL;
+    
+    if(b.len+offset > self->size){
+        PyErr_SetString(PyExc_RuntimeError,"Writing data outside Sharemem area");
         return NULL;
     }
-    
-    memcpy(shm, b.buf, b.len);
+
+    if(lockme)
+        if(lock(self)<0)
+            return NULL;
+
+    memcpy(self->ptr+offset, b.buf, b.len);
+
+    if(lockme)
+        if(unlock(self)<0)
+            return NULL;
 
     Py_INCREF(Py_None);
     return Py_None;
 }
 
-static PyObject * sh_close(PyObject * self, PyObject * args){
-    return NULL;
-}
-
-static PyMethodDef ShareMem_Methods[] = {
-    {"open",  sh_open, METH_VARARGS,
-     "Open the shared memory and return pointer"},
-    {"read",  sh_read, METH_VARARGS,
-     "Read data from the shared memory"},
-    {"write",  sh_write, METH_VARARGS,
-     "Write data to the shared memory."},
-    {"close", sh_close, METH_VARARGS,
-     "Read the position from the shared memory with the ith offset."},
-    {NULL, NULL, 0, NULL}        /* Sentinel */
+static PyMethodDef SharedMemory_methods[] = {
+    {"lock", (PyCFunction)SharedMemory_lock, METH_NOARGS,
+     "Lock IPC lock"
+    },
+    {"unlock", (PyCFunction)SharedMemory_unlock, METH_NOARGS,
+     "Unlock IPC lock"
+    },
+    {"read", (PyCFunction)SharedMemory_read, METH_KEYWORDS | METH_VARARGS,
+     "Return bytes form shared memory with length and size from call arguments, defaults (length=1, offset=0)"
+    },
+    {"write", (PyCFunction)SharedMemory_write, METH_KEYWORDS | METH_VARARGS,
+     "Write data into shared memory, defaults (offset=0)"
+    },
+    {NULL}  /* Sentinel */
 };
 
-PyMODINIT_FUNC PyInit_sharemem(void)
-{
-    PyObject *module;
-    static struct PyModuleDef moduledef = {
-        PyModuleDef_HEAD_INIT,
-        "sharemem",
-        NULL,
-        -1,
-        ShareMem_Methods,
-        NULL,
-        NULL,
-        NULL,
-        NULL
-    };
+static PyTypeObject SharedMemoryType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "sharemem.SharedMemory",             /* tp_name */
+    sizeof(SharedMemory),             /* tp_basicsize */
+    0,                         /* tp_itemsize */
+    (destructor)SharedMemory_dealloc, /* tp_dealloc */
+    0,                         /* tp_print */
+    0,                         /* tp_getattr */
+    0,                         /* tp_setattr */
+    0,                         /* tp_reserved */
+    0,                         /* tp_repr */
+    0,                         /* tp_as_number */
+    0,                         /* tp_as_sequence */
+    0,                         /* tp_as_mapping */
+    0,                         /* tp_hash  */
+    0,                         /* tp_call */
+    0,                         /* tp_str */
+    0,                         /* tp_getattro */
+    0,                         /* tp_setattro */
+    0,                         /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT |
+        Py_TPFLAGS_BASETYPE,   /* tp_flags */
+    "SharedMemory objects",           /* tp_doc */
+    0,                         /* tp_traverse */
+    0,                         /* tp_clear */
+    0,                         /* tp_richcompare */
+    0,                         /* tp_weaklistoffset */
+    0,                         /* tp_iter */
+    0,                         /* tp_iternext */
+    SharedMemory_methods,             /* tp_methods */
+    SharedMemory_members,             /* tp_members */
+    0,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    (initproc)SharedMemory_init,      /* tp_init */
+    0,                         /* tp_alloc */
+    SharedMemory_new,                 /* tp_new */
+};
 
-    module = PyModule_Create(&moduledef);
-    if (!module) return NULL;
+static PyModuleDef sharememmodule = {
+    PyModuleDef_HEAD_INIT,
+    "sharemem",
+    "Example module that creates an extension type.",
+    -1,
+    NULL, NULL, NULL, NULL, NULL
+};
 
-    (void) PyModule_AddIntConstant(module, "IPC_CREAT",   IPC_CREAT);
-    return module;
+PyMODINIT_FUNC
+PyInit_sharemem(void)
+
+{    PyObject* m;
+
+    if (PyType_Ready(&SharedMemoryType) < 0)
+        return NULL;
+
+    m = PyModule_Create(&sharememmodule);
+    if (m == NULL)
+        return NULL;
+
+    Py_INCREF(&SharedMemoryType);
+    PyModule_AddObject(m, "SharedMemory", (PyObject *)&SharedMemoryType);
+    return m;
 }

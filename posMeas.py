@@ -20,7 +20,7 @@ except ImportError as ex:
     logging.exception(ex)
     sys.exit('No default configuration file found')
 
-import ballposition
+from sharepos import SharedPosition
 import detector
 import processor
 
@@ -180,16 +180,15 @@ def main(**kwargs):
     pre_camera_tasks()
     camera = None
     proc = None
+
+    shared_position = SharedPosition(len(detectors))
     try:
         fps = FPS().start()
         with picamera.PiCamera() as camera:
             def position_callback(centers):
                 # Write the measured position to the shared memory
                 for i, center in enumerate(centers):
-                    if center:
-                        ballposition.write((int(center[0]*100), int(center[1]*100)), offset=i)
-                    else:
-                        ballposition.write((params["resolution"][0]+1, params["resolution"][1]+1), offset=i)
+                    shared_position.write(center, offset=i)
 
                 if params["preview"] and params["annotate"]:
                     camera.annotate_text = "Position:\n   {}".format("\n   ".join(map(str, centers)))
@@ -198,8 +197,6 @@ def main(**kwargs):
                         if center:
                             move_overlay(overlay, center)
                 fps.update()
-
-            ballposition.init(len(detectors))
 
             proc = processor.Processor(detectors,position_callback)
 
