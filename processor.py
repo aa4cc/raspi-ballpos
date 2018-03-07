@@ -31,7 +31,7 @@ class Processor(io.BytesIO):
             self.image_server = image_server.ImageServer()
             self.image_server.start()
 
-    @profile
+    #@profile
     def write(self, b):
         if params["verbose"] > 0:
             e1 = cv2.getTickCount()
@@ -63,6 +63,9 @@ class Processor(io.BytesIO):
         self.frame_number += 1;
 
     def stop(self):
+        for detector in self.detectors:
+            detector.stop()
+
         if self.image_server:
             self.image_server.shutdown()
 

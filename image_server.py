@@ -20,7 +20,10 @@ class ImageHandler(StreamRequestHandler):
         # Likewise, self.wfile is a file-like object used to write back
         # to the client
         image = self.server.image;
-        self.wfile.write(struct.pack('HH', image.shape[0], image.shape[1]))
+        if len(image.shape) == 2:
+            self.wfile.write(struct.pack('HHH', image.shape[0], image.shape[1], 1))
+        elif len(image.shape) == 3:
+            self.wfile.write(struct.pack('HHH', image.shape[0], image.shape[1], image.shape[2]))
         self.wfile.write(image.tobytes())
 
 class ImageServer(TCPServer, Thread):

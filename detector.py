@@ -3,11 +3,13 @@ import numpy as np
 import cv2
 import math
 import logging
+import image_server
 
 logger = logging.getLogger(__name__)
 
 class Detector(object):
-    pass
+    def stop(self):
+        pass
 
 
 class Simple(Detector):
@@ -22,15 +24,23 @@ class Simple(Detector):
         self.name = kwargs["name"]
         self.debug = kwargs.get("debug", 0)
 
+        if self.debug:
+            self.is_big = image_server.ImageServer(port=1151)
+            self.is_big.start()
+            self.is_small = image_server.ImageServer(port=1152)
+            self.is_small.start()
+
         print("Ball mass must be between {:.0f} px^2 and {:.0f} px^2".format(self.ballmasslim[0]/255, self.ballmasslim[1]/255))
         print("Image channel combination coefficients: ({})".format(self.color_coefs))
 
-    def findTheBall(self, image, ball_size_lim = None, mask = None, denoise = True, kernel = None, iterations = 2):
-        # take a linear combination of the color channels to get a grayscale image containg only images of a desired color
-        self.im = np.clip(image[:,:,0]*self.color_coefs[0] + image[:,:,1]*self.color_coefs[1] + image[:,:,2]*self.color_coefs[2], 0, 255).astype(np.uint8) 
+    def stop(self):
+        if self.debug:
+            self.is_big.shutdown()
+            self.is_small.shutdown()
 
-        if self.debug ==1:
-            self.plot()
+    def findTheBall(self, image, ball_size_lim = None, mask = None, denoise = True, kernel = None, iterations = 2, ch=0):
+        # take a linear combination of the color channels to get a grayscale image containg only images of a desired color
+        self.im = np.clip(image[:,:,0]*self.color_coefs[0] + image[:,:,1]*self.color_coefs[1] + image[:,:,2]*self.color_coefs[2], 0, 255).astype(np.uint8)
 
         # apply a mask if it is given
         if mask is not None:
@@ -47,12 +57,18 @@ class Simple(Detector):
         # cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
         # ((x, y), radius) = cv2.minEnclosingCircle(c)
 
+        if self.debug and ch==1:
+            self.is_big.writeImage(self.im);
+
+        if self.debug and ch==2:
+            self.is_small.writeImage(self.im);
+
         M = cv2.moments(im_denoised)
         if M['m00'] > 0 and (ball_size_lim is None  or ball_size_lim[0] < M['m00'] < ball_size_lim[1]):
             center =  M['m10'] / M['m00'], M['m01'] / M['m00']
             #print("Ball mass:", M['m00'])
         else:
-            print("Ball mass out of mass ranges.")
+            print("Ball mass out of mass ranges. (mass={}, lim={})".format(M['m00'], ball_size_lim))
             center = None
 
         return center, im_thrs, im_denoised
@@ -66,7 +82,7 @@ class Simple(Detector):
             else:
                 image_dwn = image
 
-            center, im_thrs, im_denoised = self.findTheBall(image_dwn, ballmasslim_dwn, mask = self.processor.mask_dwn, denoise = False)
+            center, im_thrs, im_denoised = self.findTheBall(image_dwn, ballmasslim_dwn, mask = self.processor.mask_dwn, denoise = False, ch=1)
             if center is not None:
                 center = int(self.downsample*center[0]), int(self.downsample*center[1])
 
@@ -96,7 +112,7 @@ class Simple(Detector):
                     mask_ROI = None
 
                 # Find the ball in the region of interest
-                center_inROI, im_thrs, im_denoised = self.findTheBall(imageROI, self.ballmasslim, denoise=False, mask=mask_ROI)
+                center_inROI, im_thrs, im_denoised = self.findTheBall(imageROI, self.ballmasslim, denoise=False, mask=mask_ROI, ch=2)
 
                 # If the ball is not found, raise an exception
                 if center_inROI is None:
