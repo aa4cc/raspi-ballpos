@@ -48,7 +48,8 @@ class Processor(io.BytesIO):
             e2 = cv2.getTickCount()
             elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
 
-            c = ", ".join("({x:6.2f}, {y:6.2f})".format(x=center[0], y=center[1]) if center else "None" for center in centers)
+
+            c = ", ".join(("({0:6.2f}, {1:6.2f})" if center[2] != center[2] else "({0:6.2f}, {1:6.2f}, {2:2.2f})").format(*center) if center else "None" for center in centers)
 
             print('Frame: {}, center [{}], elapsed time: {:.1f}ms'.format(self.frame_number, c, elapsed_time*1000))
 

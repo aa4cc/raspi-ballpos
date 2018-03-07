@@ -6,6 +6,7 @@ import logging
 import image_server
 
 logger = logging.getLogger(__name__)
+NAN = float('nan')
 
 class Detector(object):
     def stop(self):
@@ -101,6 +102,7 @@ class Simple(Detector):
             if center is None:
                 print('The ball was not found in the whole image!')
                 center_inROI = None
+                return None
             else:
                 # Find the ball in smaller image
                 ROI_xtop = max((center[1]-self.tracking_window_halfsize), 0)
@@ -122,7 +124,7 @@ class Simple(Detector):
                     print('The ball was not found in the ROI!')
                 else:
                     # transform the measured position from ROI to full image coordinates
-                    center = (ROI_yleft + center_inROI[0], ROI_xtop + center_inROI[1])
+                    center = ROI_yleft + center_inROI[0], ROI_xtop + center_inROI[1], NAN
 
             # Save the the region of interest image if the debug option is chosen
             if params['debug']:

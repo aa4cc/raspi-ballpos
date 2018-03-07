@@ -4,7 +4,7 @@ from sharemem import SharedMemory
 from struct import pack, unpack, calcsize
 
 KEY = 3145914
-DEFAULT_FORMAT = "ff"
+DEFAULT_FORMAT = "fff"
 
 class SharedPosition(SharedMemory):
 	"""docstring for SharedPosition"""
