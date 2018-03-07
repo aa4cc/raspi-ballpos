@@ -1,5 +1,9 @@
 #include "raspiballpos.h"
 
+position* meas_pos;
+char_T *shm;
+pid_t script_pid;
+
 void raspiballpos_init(uint32_T shm_key, boolean_T execScript, char *script_path, uint32_T fps, uint32_T N, uint32_T devices) {
     printf("Execution of python code select: %d", execScript);
     if (0) {

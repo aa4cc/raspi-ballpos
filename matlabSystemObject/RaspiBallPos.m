@@ -31,6 +31,8 @@ classdef RaspiBallPos < matlab.System ...
     properties (Nontunable, Logical)
         % Execute raspi-ballpos script (not functional yet)
         execScript = false;
+        % Concatenate the outputs
+        concatenateOutputs = false;
     end
     
     properties (Access = private)
@@ -67,8 +69,13 @@ classdef RaspiBallPos < matlab.System ...
                     coder.wref(positions), ...
                     obj.objects);
             end
-            for k=1:obj.objects
-                varargout{k} = double(positions(:,k)')/100;
+            
+            if obj.concatenateOutputs
+                varargout{1} = double(positions(:))/100;
+            else
+                for k=1:obj.objects
+                    varargout{k} = double(positions(:,k))/100;
+                end
             end
         end
         
@@ -89,7 +96,11 @@ classdef RaspiBallPos < matlab.System ...
         end
         
         function num = getNumOutputsImpl(obj)
-            num = obj.objects;
+            if obj.concatenateOutputs
+                num = 1;
+            else
+                num = obj.objects;
+            end
         end
         
                 
@@ -98,9 +109,13 @@ classdef RaspiBallPos < matlab.System ...
         end
         
         function varargout = isOutputFixedSizeImpl(obj,~)
-            for k = 1:obj.objects
-               varargout{k} = true;
-            end
+            if obj.concatenateOutputs
+                varargout{1} = true;
+            else
+                for k = 1:obj.objects
+                   varargout{k} = true;
+                end
+            end            
         end
         
         function icon = getIconImpl(~)
@@ -109,26 +124,42 @@ classdef RaspiBallPos < matlab.System ...
         end
         
         function varargout = isOutputComplexImpl(obj)
-            for k = 1:obj.objects
-               varargout{k} = false;
-            end
+            if obj.concatenateOutputs
+                varargout{1} = false;
+            else
+                for k = 1:obj.objects
+                   varargout{k} = false;
+                end
+            end            
         end
         
         function varargout = getOutputSizeImpl(obj)
-            for k = 1:obj.objects
-               varargout{k} = [1,2];
+            if obj.concatenateOutputs
+                varargout{1} = 2*obj.objects;
+            else
+                for k = 1:obj.objects
+                   varargout{k} = 2;
+                end
             end
         end
         
         function varargout = getOutputDataTypeImpl(obj)
-            for k = 1:obj.objects
-               varargout{k} = 'double';
+            if obj.concatenateOutputs
+                varargout{1} = 'double';
+            else
+                for k = 1:obj.objects
+                   varargout{k} = 'double';
+                end
             end
         end
         
         function varargout = getOutputNamesImpl(obj)
-            for k = 1:obj.objects
-               varargout{k} = sprintf('Position %d [x,y]', k);
+            if obj.concatenateOutputs
+                varargout{1} = 'Position [x1;y1;x2...]';
+            else
+                for k = 1:obj.objects
+                   varargout{k} = sprintf('Position %d [x;y]', k);
+                end
             end
         end        
     end
