@@ -33,6 +33,8 @@ classdef RaspiBallPos < matlab.System ...
         execScript = false;
         % Concatenate the outputs
         concatenateOutputs = false;
+        % Enable rotation
+        rotation = false;
     end
     
     properties (Access = private)
@@ -60,7 +62,7 @@ classdef RaspiBallPos < matlab.System ...
         end
         
         function varargout = stepImpl(obj) 
-            positions = zeros(2, obj.objects, 'uint32');
+            positions = zeros(3, obj.objects, 'single');
             if isempty(coder.target)
                 % Place simulation output code here 
             else
@@ -70,11 +72,17 @@ classdef RaspiBallPos < matlab.System ...
                     obj.objects);
             end
             
+            if obj.rotation
+                part = double(positions);
+            else
+                part = double(positions(1:2,:));
+            end
+            
             if obj.concatenateOutputs
-                varargout{1} = double(positions(:))/100;
+                varargout{1} = part(:);
             else
                 for k=1:obj.objects
-                    varargout{k} = double(positions(:,k))/100;
+                    varargout{k} = part(:,k);
                 end
             end
         end
@@ -134,11 +142,16 @@ classdef RaspiBallPos < matlab.System ...
         end
         
         function varargout = getOutputSizeImpl(obj)
+            if obj.rotation
+                n=3;
+            else
+                n=2;
+            end
             if obj.concatenateOutputs
-                varargout{1} = 2*obj.objects;
+                varargout{1} = n*obj.objects;
             else
                 for k = 1:obj.objects
-                   varargout{k} = 2;
+                   varargout{k} = n;
                 end
             end
         end
@@ -154,11 +167,19 @@ classdef RaspiBallPos < matlab.System ...
         end
         
         function varargout = getOutputNamesImpl(obj)
-            if obj.concatenateOutputs
+            if obj.concatenateOutputs && obj.rotation
+                varargout{1} = 'Position [x1;y1;r1;x2...]';
+            elseif obj.concatenateOutputs
                 varargout{1} = 'Position [x1;y1;x2...]';
             else
+                if obj.rotation
+                    str = 'Position %d [x;y;r]';
+                else
+                    str = 'Position %d [x;y]';
+                end
+                
                 for k = 1:obj.objects
-                   varargout{k} = sprintf('Position %d [x;y]', k);
+                   varargout{k} = sprintf(str, k);
                 end
             end
         end        
