@@ -11,6 +11,9 @@ class Detector(object):
     def stop(self):
         pass
 
+    def processImage(self, frame_number, image):
+        raise RuntimeError("Class {} as child of detector.Detector must override Detector.proccessImage()")
+
 
 class Simple(Detector):
     def __init__(self, **kwargs):
