@@ -41,7 +41,7 @@ static int lock(SharedMemory* self)
 
     struct sembuf sb = {0, -1, 0}; /* set to allocate resource */
     if (semop(self->semaphore, &sb, 1) == -1) {
-        PyErr_SetString(PyExc_RuntimeError,"Lock semaphore error");
+        PyErr_SetString(PyExc_RuntimeError,"Lock semaphore error, maybe already deleted?");
         return -1;
     }
     self->lock=LOCKED;
@@ -72,7 +72,6 @@ SharedMemory_dealloc(SharedMemory* self)
         shmdt(self->ptr);
         if(self->created){
             shmctl(self->shmid, IPC_RMID, NULL);
-            printf("Marking SharedMemory to destroy\n");
         }
     }
     if(self->semaphore != -1){
@@ -80,7 +79,6 @@ SharedMemory_dealloc(SharedMemory* self)
         if(self->created){
             /* remove semaphore */
             semctl(self->semaphore, 0, IPC_RMID, arg);
-            printf("Marking semaphore to destroy\n");
         }   
     }
 
@@ -116,16 +114,9 @@ SharedMemory_init(SharedMemory *self, PyObject *args, PyObject *kwds)
                                       &self->key, &self->size, &self->created, &self->mode))
         return -1;
 
-    printf("Value of self->created=%d\n", self->created);
-
     unsigned int opts = self->mode;
     if (self->created){
         opts |= IPC_CREAT;
-    }
-
-    if (self->size <= 0) {
-        PyErr_SetString(PyExc_ValueError,"Size must be greater than 0.");
-        return -1;
     }
 
     if (self->size > SIZE_LIMIT) {
@@ -135,19 +126,21 @@ SharedMemory_init(SharedMemory *self, PyObject *args, PyObject *kwds)
         return -1;
     }
 
-    if ((self->shmid = shmget(self->key, self->size, opts)) < 0) {
-        PyErr_SetString(PyExc_RuntimeError,"Syscall to shmget returned errorcode, getmemory failed");
-        return -1;
-    }
+    if(self->size){
+        if ((self->shmid = shmget(self->key, self->size, opts)) < 0) {
+            PyErr_SetString(PyExc_RuntimeError,"Syscall to shmget returned errorcode, getmemory failed");
+            return -1;
+        }
 
-    // Now we attach the segment to our data space.
-    if ((self->ptr = shmat(self->shmid, NULL, 0)) == (char *) -1) {
-        PyErr_SetString(PyExc_RuntimeError,"Syscall to shmat returned errorcode, attaching failed");
-        return -1;
-    }
+        // Now we attach the segment to our data space.
+        if ((self->ptr = shmat(self->shmid, NULL, 0)) == (char *) -1) {
+            PyErr_SetString(PyExc_RuntimeError,"Syscall to shmat returned errorcode, attaching failed");
+            return -1;
+        }
 
-    if (self->created){
-        memset(self->ptr, 0, self->size);
+        if (self->created){
+            memset(self->ptr, 0, self->size);
+        }
     }
 
     /* create a semaphore set with 1 semaphore: */
@@ -181,6 +174,8 @@ static PyMemberDef SharedMemory_members[] = {
      "Shared memory size"},
     {"semaphore", T_INT, offsetof(SharedMemory, semaphore), READONLY,
      "Semaphore id"},
+    {"created", T_BOOL, offsetof(SharedMemory, created), READONLY,
+     "Determine if Shared memory is created by this instance"},
     {NULL}  /* Sentinel */
 };
 
@@ -201,7 +196,7 @@ SharedMemory_unlock(SharedMemory* self)
 }
 
 static PyObject * SharedMemory_read(SharedMemory* self, PyObject *args, PyObject *kwds){
-    size_t length = 1;
+    size_t length = self->size;
     size_t offset = 0;
     int lockme=1;
 
@@ -211,7 +206,7 @@ static PyObject * SharedMemory_read(SharedMemory* self, PyObject *args, PyObject
         return NULL;
 
     if(length+offset > self->size){
-        PyErr_SetString(PyExc_RuntimeError,"Accesing data outside Sharemem area");
+        PyErr_SetString(PyExc_IndexError,"Accesing data outside Sharemem area");
         return NULL;
     }
 
@@ -238,7 +233,7 @@ static PyObject * SharedMemory_write(SharedMemory* self, PyObject *args, PyObjec
         return NULL;
     
     if(b.len+offset > self->size){
-        PyErr_SetString(PyExc_RuntimeError,"Writing data outside Sharemem area");
+        PyErr_SetString(PyExc_IndexError,"Writing data outside Sharemem area");
         return NULL;
     }
 
@@ -254,6 +249,13 @@ static PyObject * SharedMemory_write(SharedMemory* self, PyObject *args, PyObjec
 
     Py_INCREF(Py_None);
     return Py_None;
+}
+
+static PyObject* SharedMemory_repr(PyObject *o){
+    char buffer[150];
+    SharedMemory *self = (SharedMemory*) o;
+    sprintf(buffer, "sharemem.SharedMemory(key=%u, size=%u, create=%s, mode=0o%03o)",self->key, self->size, self->created?"True":"False", self->mode);
+    return Py_BuildValue("s", buffer);
 }
 
 static PyMethodDef SharedMemory_methods[] = {
@@ -282,7 +284,7 @@ static PyTypeObject SharedMemoryType = {
     0,                         /* tp_getattr */
     0,                         /* tp_setattr */
     0,                         /* tp_reserved */
-    0,                         /* tp_repr */
+    SharedMemory_repr,         /* tp_repr */
     0,                         /* tp_as_number */
     0,                         /* tp_as_sequence */
     0,                         /* tp_as_mapping */
