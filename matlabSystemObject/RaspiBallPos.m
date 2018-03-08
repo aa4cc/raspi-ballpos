@@ -28,6 +28,11 @@ classdef RaspiBallPos < matlab.System ...
         objects = 1;
     end
     
+    properties
+        % Not found value
+        notfound = nan;
+    end
+    
     properties (Nontunable, Logical)
         % Execute raspi-ballpos script (not functional yet)
         execScript = false;
@@ -35,6 +40,8 @@ classdef RaspiBallPos < matlab.System ...
         concatenateOutputs = false;
         % Enable rotation
         rotation = false;
+        % Enable found output
+        found_output = true;
     end
     
     properties (Access = private)
@@ -78,12 +85,22 @@ classdef RaspiBallPos < matlab.System ...
                 part = double(positions(1:2,:));
             end
             
+            found = (~all(isnan(part)))';
+            
+            for ind=1:obj.objects
+                if ~found(ind)
+                    part(:, ind) = obj.notfound;
+                end
+            end
+            
             if obj.concatenateOutputs
                 varargout{1} = part(:);
+                varargout{2} = found;
             else
                 for k=1:obj.objects
                     varargout{k} = part(:,k);
                 end
+                varargout{obj.objects+1} = found;
             end
         end
         
@@ -104,10 +121,15 @@ classdef RaspiBallPos < matlab.System ...
         end
         
         function num = getNumOutputsImpl(obj)
+            num = 0;
             if obj.concatenateOutputs
-                num = 1;
+                num = num+1;
             else
-                num = obj.objects;
+                num = num+obj.objects;
+            end
+            
+            if obj.found_output
+                num = num+1;
             end
         end
         
@@ -119,9 +141,15 @@ classdef RaspiBallPos < matlab.System ...
         function varargout = isOutputFixedSizeImpl(obj,~)
             if obj.concatenateOutputs
                 varargout{1} = true;
+                if obj.found_output
+                    varargout{2} = true;
+                end
             else
                 for k = 1:obj.objects
                    varargout{k} = true;
+                end
+                if obj.found_output
+                    varargout{obj.objects+1} = true;
                 end
             end            
         end
@@ -134,9 +162,15 @@ classdef RaspiBallPos < matlab.System ...
         function varargout = isOutputComplexImpl(obj)
             if obj.concatenateOutputs
                 varargout{1} = false;
+                if obj.found_output
+                    varargout{2} = false;
+                end
             else
                 for k = 1:obj.objects
                    varargout{k} = false;
+                end
+                if obj.found_output
+                    varargout{obj.objects+1} = false;
                 end
             end            
         end
@@ -149,9 +183,15 @@ classdef RaspiBallPos < matlab.System ...
             end
             if obj.concatenateOutputs
                 varargout{1} = n*obj.objects;
+                if obj.found_output
+                    varargout{2} = obj.objects;
+                end
             else
                 for k = 1:obj.objects
                    varargout{k} = n;
+                end
+                if obj.found_output
+                    varargout{obj.objects+1} = obj.objects;
                 end
             end
         end
@@ -159,9 +199,15 @@ classdef RaspiBallPos < matlab.System ...
         function varargout = getOutputDataTypeImpl(obj)
             if obj.concatenateOutputs
                 varargout{1} = 'double';
+                if obj.found_output
+                    varargout{2} = 'logical';
+                end
             else
                 for k = 1:obj.objects
                    varargout{k} = 'double';
+                end
+                if obj.found_output
+                    varargout{obj.objects+1} = 'uint8';
                 end
             end
         end
@@ -169,8 +215,14 @@ classdef RaspiBallPos < matlab.System ...
         function varargout = getOutputNamesImpl(obj)
             if obj.concatenateOutputs && obj.rotation
                 varargout{1} = 'Position [x1;y1;r1;x2...]';
+                if obj.found_output
+                    varargout{2} = 'Object found?';
+                end
             elseif obj.concatenateOutputs
                 varargout{1} = 'Position [x1;y1;x2...]';
+                if obj.found_output
+                    varargout{2} = 'Object found?';
+                end
             else
                 if obj.rotation
                     str = 'Position %d [x;y;r]';
@@ -180,6 +232,9 @@ classdef RaspiBallPos < matlab.System ...
                 
                 for k = 1:obj.objects
                    varargout{k} = sprintf(str, k);
+                end
+                if obj.found_output
+                    varargout{obj.objects+1} = 'Object found?';
                 end
             end
         end        
