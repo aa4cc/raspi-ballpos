@@ -32,6 +32,9 @@ class BallDetector(Detector):
         print("Ball mass must be between {:.0f} px^2 and {:.0f} px^2".format(self.ballmasslim[0]/255, self.ballmasslim[1]/255))
         print("Image channel combination coefficients: ({})".format(self.color_coefs))
 
+    def __repr__(self):
+        return "<{}(color_coefs={}, threshold={})>".format(self.__class__.__name__, self.color_coefs, self.threshold)
+
     def stop(self):
         for server in self.image_server:
             server.shutdown()
