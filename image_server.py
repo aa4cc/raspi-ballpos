@@ -36,6 +36,10 @@ class ImageServer(TCPServer, Thread):
         self.port = port
         self.image = np.zeros([480,480,3], dtype='uint8')
 
+    def start(self):
+        Thread.start(self)
+        return self
+
     def run(self):
         print("Starting server, listening on {}:{}".format(self.host, self.port))
         self.serve_forever()

@@ -51,7 +51,7 @@ class Processor(io.BytesIO):
 
             c = ", ".join(("({0:6.2f}, {1:6.2f})" if center[2] != center[2] else "({0:6.2f}, {1:6.2f}, {2:2.2f})").format(*center) if center else "None" for center in centers)
 
-            print('Frame: {}, center [{}], elapsed time: {:.1f}ms'.format(self.frame_number, c, elapsed_time*1000))
+            print('Frame: {:5}, center [{}], elapsed time: {:.1f}ms'.format(self.frame_number, c, elapsed_time*1000))
 
         if self.image_server:
             self.image_server.writeImage(self.image)

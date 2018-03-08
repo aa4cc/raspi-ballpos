@@ -16,7 +16,7 @@ class Detector(object):
         raise RuntimeError("Class {} as child of detector.Detector must override Detector.proccessImage()")
 
 
-class Simple(Detector):
+class BallDetector(Detector):
     def __init__(self, **kwargs):
         self.ballmasslim = (kwargs["ball_size"][0]/2)**2 * math.pi * 255, (kwargs["ball_size"][1]/2)**2 * math.pi * 255
         self.color_coefs = kwargs["color_coefs"]
@@ -27,20 +27,14 @@ class Simple(Detector):
         self.processor = kwargs["processor"]
         self.name = kwargs["name"]
         self.debug = kwargs.get("debug", 0)
-
-        if self.debug:
-            self.is_big = image_server.ImageServer(port=1151)
-            self.is_big.start()
-            self.is_small = image_server.ImageServer(port=1152)
-            self.is_small.start()
+        self.image_server = [image_server.ImageServer(port=port).start() for port in kwargs.get("image_server", ())]
 
         print("Ball mass must be between {:.0f} px^2 and {:.0f} px^2".format(self.ballmasslim[0]/255, self.ballmasslim[1]/255))
         print("Image channel combination coefficients: ({})".format(self.color_coefs))
 
     def stop(self):
-        if self.debug:
-            self.is_big.shutdown()
-            self.is_small.shutdown()
+        for server in self.image_server:
+            server.shutdown()
 
     def findTheBall(self, image, ball_size_lim = None, mask = None, denoise = True, kernel = None, iterations = 2, ch=0):
         # take a linear combination of the color channels to get a grayscale image containg only images of a desired color
@@ -50,32 +44,23 @@ class Simple(Detector):
         if mask is not None:
             self.im = cv2.bitwise_and(self.im, self.im, mask = mask)
 
+        # threshold the image
         im_thrs = cv2.inRange(self.im, self.threshold,255)
-        if denoise:
-            # im_denoised = cv2.dilate(im_thrs, kernel, iterations)
-            # im_denoised = cv2.erode(im_denoised, kernel, iterations)
-            im_denoised = cv2.morphologyEx(im_thrs, cv2.MORPH_OPEN, None)
-        else:
-            im_denoised = im_thrs
 
-        # cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
-        # ((x, y), radius) = cv2.minEnclosingCircle(c)
 
-        if self.debug and ch==1:
-            self.is_big.writeImage(self.im);
+        if self.image_server:
+            self.image_server[ch].writeImage(self.im);
 
-        if self.debug and ch==2:
-            self.is_small.writeImage(self.im);
-
-        M = cv2.moments(im_denoised)
+        M = cv2.moments(im_thrs)
         if M['m00'] > 0 and (ball_size_lim is None  or ball_size_lim[0] < M['m00'] < ball_size_lim[1]):
             center =  M['m10'] / M['m00'], M['m01'] / M['m00']
             #print("Ball mass:", M['m00'])
         else:
-            print("Ball mass out of mass ranges. (mass={}, lim={})".format(M['m00'], ball_size_lim))
+            if self.debug:
+                print("Ball mass out of mass ranges. (mass={}, lim={})".format(M['m00'], ball_size_lim))
             center = None
 
-        return center, im_thrs, im_denoised
+        return center
 
     def processImage(self, frame_number, image):
         try:
@@ -86,21 +71,13 @@ class Simple(Detector):
             else:
                 image_dwn = image
 
-            center, im_thrs, im_denoised = self.findTheBall(image_dwn, ballmasslim_dwn, mask = self.processor.mask_dwn, denoise = False, ch=1)
+            center = self.findTheBall(image_dwn, ballmasslim_dwn, mask = self.processor.mask_dwn, denoise = False, ch=0)
             if center is not None:
                 center = int(self.downsample*center[0]), int(self.downsample*center[1])
 
-
-            # Save the the region of interest image if the debug option is chosen, or ball not found
-            if params['debug'] > 1 or (center is None and params["debug"]):
-                # if center is not None:
-                    # cv2.circle(img_dwnsample, center, 5, (0, 0, 255), -1)
-                cv2.imwrite("{}im_dwn_denoised{}.png".format(params['img_path'], frame_number), im_denoised)
-                cv2.imwrite("{}image{}.png".format(params['img_path'], frame_number), image)       
-                cv2.imwrite("{}im_thrs{}.png".format(params['img_path'], frame_number), im_thrs)         
-
             if center is None:
-                print('The ball was not found in the whole image!')
+                if self.debug:
+                    print('The ball was not found in the whole image!')
                 center_inROI = None
                 return None
             else:
@@ -117,38 +94,16 @@ class Simple(Detector):
                     mask_ROI = None
 
                 # Find the ball in the region of interest
-                center_inROI, im_thrs, im_denoised = self.findTheBall(imageROI, self.ballmasslim, denoise=False, mask=mask_ROI, ch=2)
+                center_inROI = self.findTheBall(imageROI, self.ballmasslim, denoise=False, mask=mask_ROI, ch=1)
 
                 # If the ball is not found, raise an exception
                 if center_inROI is None:
-                    print('The ball was not found in the ROI!')
+                    if self.debug:
+                        print('The ball was not found in the ROI!')
+                    return None
                 else:
                     # transform the measured position from ROI to full image coordinates
                     center = ROI_yleft + center_inROI[0], ROI_xtop + center_inROI[1], NAN
-
-            # Save the the region of interest image if the debug option is chosen
-            if params['debug']:
-                # cv2.imwrite("{}im_thrs%d.png".format(params['img_path'], frame_number), im_thrs)
-
-                if center_inROI is not None:
-                    cv2.circle(imageROI, center_inROI, 5, (0, 0, 255), -1)
-                    cv2.imwrite("{}im_roi{}.png".format(params['img_path'], frame_number), imageROI) 
-                    cv2.imwrite("{}im_denoised{}.png".format(params['img_path'], frame_number), im_denoised)         
             return center
         except Exception as e:
             logger.exception(e)
-
-    def plot(self):
-        import matplotlib.pyplot as plt
-        plt.imshow(self.im)
-        plt.colorbar()
-        plt.show()
-
-class LEDDetector(Detector):
-    def __init__(self, **kwargs):
-        self.position = kwargs["position"]
-        self.name = kwargs["name"]
-
-    def processImage(self, frame_number, image):
-        pixel = image[self.position[0],self.position[1],:]
-        return pixel[0], pixel[1]

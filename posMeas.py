@@ -32,6 +32,7 @@ from imutils.video import FPS
 
 # Global variables
 params = {}
+NAN = float('nan')
 
 def gen_overlay(arg):
     try:
@@ -187,7 +188,7 @@ def main(**kwargs):
         with picamera.PiCamera() as camera:
             def position_callback(centers):
                 # Write the measured position to the shared memory
-                shared_position.write_many(centers)
+                shared_position.write_many(center if center else (NAN, NAN, NAN) for center in centers)
 
                 if params["preview"] and params["annotate"]:
                     camera.annotate_text = "Position:\n   {}".format("\n   ".join(map(str, centers)))
@@ -195,6 +196,8 @@ def main(**kwargs):
                     for overlay, center in zip(camera.overlays, centers):
                         if center:
                             move_overlay(overlay, center)
+                        else:
+                            move_overlay(overlay, (0,0))
                 fps.update()
 
             proc = processor.Processor(detectors,position_callback)
