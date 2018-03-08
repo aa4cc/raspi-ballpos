@@ -187,8 +187,7 @@ def main(**kwargs):
         with picamera.PiCamera() as camera:
             def position_callback(centers):
                 # Write the measured position to the shared memory
-                for i, center in enumerate(centers):
-                    shared_position.write(center, offset=i)
+                shared_position.write_many(centers)
 
                 if params["preview"] and params["annotate"]:
                     camera.annotate_text = "Position:\n   {}".format("\n   ".join(map(str, centers)))
