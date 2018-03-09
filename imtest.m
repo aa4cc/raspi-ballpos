@@ -2,13 +2,17 @@ close all;
 clear all;
 
 %%
-dwnsample = RaspiImage('147.32.86.182', 1151);
+obj = 'Detector-Red';
+%obj = 'Detector-Green';
+%obj = 'Detector-Blue';
+
+dwnsample = RaspiImage('147.32.86.182', 1150, obj, 'whole');
 figure(1)
 imagesc(dwnsample)
 colorbar
 
 
-roi = RaspiImage('147.32.86.182', 1152);
+roi = RaspiImage('147.32.86.182', 1150, obj, 'roi');
 figure(2)
 imagesc(roi)
 colorbar
@@ -16,7 +20,7 @@ colorbar
 %%
 % RGB image
 figure(3)
-rgb = RaspiImage('147.32.86.182', 1150);
+rgb = RaspiImage('147.32.86.182', 1150, 'Processor', 'any');
 r = rgb(:,:,1);
 g = rgb(:,:,2);
 b = rgb(:,:,3);
