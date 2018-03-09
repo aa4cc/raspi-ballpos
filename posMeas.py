@@ -221,9 +221,16 @@ def main(**kwargs):
             else:
                 import threading
                 import code
-                import matplotlib.pyplot as plt
+                import readline
+                import rlcompleter
                 threading.Thread(target=camera.capture_sequence, args=(proc,), kwargs={"use_video_port": True, "format":"rgb"}).start();
-                code.interact(local=locals())
+
+                vars = globals()
+                vars.update(locals())
+                readline.set_completer(rlcompleter.Completer(vars).complete)
+                readline.parse_and_bind("tab: complete")
+
+                code.interact(local=vars)
 
             if params["video_record"]:
                 camera.stop_recording(splitter_port=2)

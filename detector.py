@@ -3,7 +3,6 @@ import numpy as np
 import cv2
 import math
 import logging
-import image_server
 
 logger = logging.getLogger(__name__)
 NAN = float('nan')
@@ -14,6 +13,9 @@ class Detector(object):
 
     def processImage(self, frame_number, image):
         raise RuntimeError("Class {} as child of detector.Detector must override Detector.proccessImage()")
+
+    def getImage(self, name):
+        return None;
 
 
 class BallDetector(Detector):
@@ -27,7 +29,7 @@ class BallDetector(Detector):
         self.processor = kwargs["processor"]
         self.name = kwargs["name"]
         self.debug = kwargs.get("debug", 0)
-        self.image_server = [image_server.ImageServer(port=port).start() for port in kwargs.get("image_server", ())]
+        self.images = {"whole": None, "roi": None}
 
         print("Ball mass must be between {:.0f} px^2 and {:.0f} px^2".format(self.ballmasslim[0]/255, self.ballmasslim[1]/255))
         print("Image channel combination coefficients: ({})".format(self.color_coefs))
@@ -36,23 +38,24 @@ class BallDetector(Detector):
         return "<{}(color_coefs={}, threshold={})>".format(self.__class__.__name__, self.color_coefs, self.threshold)
 
     def stop(self):
-        for server in self.image_server:
-            server.shutdown()
+        pass
 
-    def findTheBall(self, image, ball_size_lim = None, mask = None, denoise = True, kernel = None, iterations = 2, ch=0):
+    def getImage(self, name):
+        return self.images.get(name, None)
+
+    def findTheBall(self, image, ball_size_lim = None, mask = None, denoise = True, kernel = None, iterations = 2, name=None):
         # take a linear combination of the color channels to get a grayscale image containg only images of a desired color
-        self.im = np.clip(image[:,:,0]*self.color_coefs[0] + image[:,:,1]*self.color_coefs[1] + image[:,:,2]*self.color_coefs[2], 0, 255).astype(np.uint8)
+        im = np.clip(image[:,:,0]*self.color_coefs[0] + image[:,:,1]*self.color_coefs[1] + image[:,:,2]*self.color_coefs[2], 0, 255).astype(np.uint8)
 
         # apply a mask if it is given
         if mask is not None:
-            self.im = cv2.bitwise_and(self.im, self.im, mask = mask)
+            im = cv2.bitwise_and(im, self.im, mask = mask)
 
         # threshold the image
-        im_thrs = cv2.inRange(self.im, self.threshold,255)
+        im_thrs = cv2.inRange(im, self.threshold,255)
 
 
-        if self.image_server:
-            self.image_server[ch].writeImage(self.im);
+        self.images[name] = im
 
         M = cv2.moments(im_thrs)
         if M['m00'] > 0 and (ball_size_lim is None  or ball_size_lim[0] < M['m00'] < ball_size_lim[1]):
@@ -74,7 +77,7 @@ class BallDetector(Detector):
             else:
                 image_dwn = image
 
-            center = self.findTheBall(image_dwn, ballmasslim_dwn, mask = self.processor.mask_dwn, denoise = False, ch=0)
+            center = self.findTheBall(image_dwn, ballmasslim_dwn, mask = self.processor.mask_dwn, denoise = False, name="whole")
             if center is not None:
                 center = int(self.downsample*center[0]), int(self.downsample*center[1])
 
@@ -97,7 +100,7 @@ class BallDetector(Detector):
                     mask_ROI = None
 
                 # Find the ball in the region of interest
-                center_inROI = self.findTheBall(imageROI, self.ballmasslim, denoise=False, mask=mask_ROI, ch=1)
+                center_inROI = self.findTheBall(imageROI, self.ballmasslim, denoise=False, mask=mask_ROI, name="roi")
 
                 # If the ball is not found, raise an exception
                 if center_inROI is None:

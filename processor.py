@@ -4,6 +4,7 @@ import cv2
 from profilehooks import profile
 import matplotlib.pyplot as plt
 import image_server
+from pprint import pprint
 
 class Processor(io.BytesIO):
     def __init__(self, detectors, callback=None):
@@ -28,8 +29,18 @@ class Processor(io.BytesIO):
 
         if params['image_server']:
             print("Starting TCP image server")
-            self.image_server = image_server.ImageServer()
+            objects = {}
+            for detector in self.detectors:
+                objects["Detector-{}".format(detector.name)] = detector
+            objects["Processor"] = self
+
+            pprint(objects)
+
+            self.image_server = image_server.ImageServer(objects=objects)
             self.image_server.start()
+
+    def getImage(self, name):
+        return self.image
 
     #@profile
     def write(self, b):
@@ -52,14 +63,6 @@ class Processor(io.BytesIO):
             c = ", ".join(("({0:6.2f}, {1:6.2f})" if center[2] != center[2] else "({0:6.2f}, {1:6.2f}, {2:2.2f})").format(*center) if center else "None" for center in centers)
 
             print('Frame: {:5}, center [{}], elapsed time: {:.1f}ms'.format(self.frame_number, c, elapsed_time*1000))
-
-        if self.image_server:
-            self.image_server.writeImage(self.image)
-
-        # if self.frame_number > 30:
-        #     cv2.imwrite("img.png",image)
-        #     import sys
-        #     sys.exit(0)
 
         self.frame_number += 1;
 
