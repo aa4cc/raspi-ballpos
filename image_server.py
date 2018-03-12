@@ -6,6 +6,12 @@ from socketserver import StreamRequestHandler, TCPServer
 from threading import Thread
 
 import numpy as np
+import cv2
+
+METHOD_MAP={
+    'GET': "http",
+    'RAW': "raw"
+}
 
 class ImageHandler(StreamRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -15,32 +21,65 @@ class ImageHandler(StreamRequestHandler):
     def handle(self):
         # self.rfile is a file-like object created by the handler;
         # we can now use e.g. readline() instead of raw recv() calls
-        data = self.rfile.readline().strip().decode().split(' ')
-        print("{} wrote: {}".format(self.client_address[0], data))
+        line = self.rfile.readline()
+        print("{} request: {}".format(self.client_address[0], line))
+        request = line.strip().decode().split(' ')
+        method = request[0]
+        path = request[1].split('/')
+        self.handlePath(path, method)
+
+    def handlePath(self, path, method):
+        path.pop(0)
+        print("Request path: {}".format(path))
         # Likewise, self.wfile is a file-like object used to write back
         # to the client
 
-        obj = self.server.objects.get(data[1], None)
+        protocol = METHOD_MAP[method]
+
+        obj = self.server.objects.get(path[0], None)
         if obj is None:
-            print('Object "{}" not found'.format(data[1]))
-            return self.returnImage(None)
+            print('Object "{}" not found'.format(path[0]))
+            return self.returnImage(None, protocol)
 
-        img = obj.getImage(data[2])
+        if len(path) < 2:
+            path.append('any')
+
+        img = obj.getImage(path[1])
         if img is None:
-            print('Image "{}" not found on object {}'.format(data[2], obj))
-            return self.returnImage(None)
+            print('Image "{}" not found on object {}'.format(path[1], obj))
+            return self.returnImage(None, protocol)
 
-        self.returnImage(img)
+        self.returnImage(img, protocol)
 
-    def returnImage(self, image):
-        if image is None:
-            image = np.zeros([0,0,0], dtype='uint8')
+    def returnImage(self, image, protocol="raw"):
+        if protocol == "http":
+            print("Protocol is HTTP")
+            if image is None:
+                self.wfile.write(b"HTTP/1.x 404 Image not found\n")
+            else:
+                self.wfile.write(b"HTTP/1.x 200 OK\n")
+            self.wfile.write(b"Cache-Control: no-cache, no-store, must-revalidaten")
+            self.wfile.write(b"Pragma: no-cache\n")
+            self.wfile.write(b"Expires: 0\n")
 
-        if len(image.shape) == 2:
-            self.wfile.write(struct.pack('HHH', image.shape[0], image.shape[1], 1))
-        elif len(image.shape) == 3:
-            self.wfile.write(struct.pack('HHH', image.shape[0], image.shape[1], image.shape[2]))
-        self.wfile.write(image.tobytes())
+            if image is None:
+                self.wfile.write(b"Content-Type: text/html; charset=UTF-8\n\n")
+                self.wfile.write(b"<html><head><title>Error 404 Image not found</title></head><body><h1>Error 404 Image not found</h1></body></html>\n")
+                return
+
+            self.wfile.write(b"Content-Type: image/bmp; charset=UTF-8\n\n")
+            _, bmp = cv2.imencode(".bmp", image)
+            self.wfile.write(bmp)
+
+        elif protocol == "raw":
+            print("Protocol is RAW")
+            if len(image.shape) == 2:
+                self.wfile.write(struct.pack('HHH', image.shape[0], image.shape[1], 1))
+            elif len(image.shape) == 3:
+                self.wfile.write(struct.pack('HHH', image.shape[0], image.shape[1], image.shape[2]))
+
+            self.wfile.write(image.tobytes())
+
 
 class ImageServer(TCPServer, Thread):
     """docstring for ImageServer"""
