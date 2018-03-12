@@ -15,10 +15,11 @@ class SharedPosition(SharedMemory):
 			key = KEY
 
 		self.count=count;
-		if self.count:
-			self._format=format;
-			self._itemsize=calcsize(format)
-			SharedMemory.__init__(self, key=key, size=count*self._itemsize, create=create)
+		
+		self._format=format;
+		self._itemsize=calcsize(format)
+
+		SharedMemory.__init__(self, key=key, size=count*self._itemsize, create=create)
 
 	def __getitem__(self, n):
 		return self.read(n)

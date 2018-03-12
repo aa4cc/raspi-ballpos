@@ -176,6 +176,8 @@ static PyMemberDef SharedMemory_members[] = {
      "Semaphore id"},
     {"created", T_BOOL, offsetof(SharedMemory, created), READONLY,
      "Determine if Shared memory is created by this instance"},
+    {"locked", T_BOOL, offsetof(SharedMemory, lock), READONLY,
+     "Determine if Shared memory is locked by this instance"},
     {NULL}  /* Sentinel */
 };
 
