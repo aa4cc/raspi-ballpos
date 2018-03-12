@@ -2,7 +2,7 @@ function [image, resolution] = RaspiImage(host, port, object, channel)
 %RASPIIMAGE Summary of this function goes here
 %   Detailed explanation goes here
     sock = tcpclient(host, port);
-    sock.write(uint8(sprintf('GET %s %s\r\n', object, channel)));
+    sock.write(uint8(sprintf('RAW /%s/%s\r\n', object, channel)));
     resolution = typecast(sock.read(6), 'uint16');
     
     image = [];
@@ -16,6 +16,7 @@ function [image, resolution] = RaspiImage(host, port, object, channel)
             pause(0.05);
         end
     end
+    sock.delete()
     
     image = permute(reshape(image, [resolution([3 2 1])]),[3,2,1]);
 end

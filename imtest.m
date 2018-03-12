@@ -2,16 +2,20 @@ close all;
 clear all;
 
 %%
-obj = 'Detector-Red';
-%obj = 'Detector-Green';
+server = '147.32.86.182';
+port = 1150;
+%obj = 'Detector-Red';
+obj = 'Detector-Green';
 %obj = 'Detector-Blue';
 
+%dwnsample = webread(sprintf('http://%s:%d/%s/%s', server, port, obj, 'whole'));
 dwnsample = RaspiImage('147.32.86.182', 1150, obj, 'whole');
 figure(1)
 imagesc(dwnsample)
 colorbar
 
 
+%dwnsample = webread(sprintf('http://%s:%d/%s/%s', server, port, obj, 'roi'));
 roi = RaspiImage('147.32.86.182', 1150, obj, 'roi');
 figure(2)
 imagesc(roi)
