@@ -24,6 +24,8 @@ class ImageHandler(StreamRequestHandler):
         line = self.rfile.readline()
         print("{} request: {}".format(self.client_address[0], line))
         request = line.strip().decode().split(' ')
+        if not len(request):
+            return
         method = request[0]
         path = request[1].split('/')
         self.handlePath(path, method)
@@ -68,6 +70,8 @@ class ImageHandler(StreamRequestHandler):
                 return
 
             self.wfile.write(b"Content-Type: image/bmp; charset=UTF-8\n\n")
+            if len(image.shape) == 3:
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             _, bmp = cv2.imencode(".bmp", image)
             self.wfile.write(bmp)
 
