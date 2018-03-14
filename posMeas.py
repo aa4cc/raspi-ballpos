@@ -46,12 +46,13 @@ def gen_overlay(arg):
     except ValueError:
         raise ValueError('Argument "{}"is not valid overlay'.format(arg))
 
-def move_overlay(overlay, position):
+def move_overlay(overlay, position, active=True):
     overlay.window =(
         overlay.offset[0]-overlay.center[0]+int(position[0]*overlay.scale),
         overlay.offset[1]-overlay.center[1]+int(position[1]*overlay.scale),
         overlay.size[0],
         overlay.size[1])
+    overlay.alpha=params["overlay_alpha"] if active else 0
 
 
 def parameter_checks():
@@ -61,7 +62,7 @@ def parameter_checks():
     print('FPS: {frame_rate}'.format(**params))
 
     if params['verbose']:
-        print('Verbose')
+        print('Verbose: {}'.format(params['verbose']))
     if params['debug']:
         print('Debug {}'.format(params["debug"]))
 
@@ -153,7 +154,7 @@ def camera_setup(camera, processor):
 @click.option('--num-frames', '-n', default=0, help='Total number of frames to process')
 @click.option('--frame-rate', '-f', default=10, help='Number of frames per second to process')
 @click.option('--exposition-time', '-e', default=10, help='Exposition time (shutter speed) in milliseconds.')
-@click.option('--verbose', '-v', is_flag=True, default=False, help='Display time needed for processing of each frame and the measured position.')
+@click.option('--verbose', '-v', count=True, default=False, help='Display time needed for processing of each frame and the measured position.')
 @click.option('--debug', '-d', count=True, default=False, help='Save masks and ROIs together with the identified position of the ball.')
 @click.option('--resolution', '-r', type=(int, int), default=(640,480), help='Image resolution')
 @click.option('--preview', '-p', is_flag=True, default=False, help="Show preview on HDMI or display")
@@ -171,6 +172,7 @@ def camera_setup(camera, processor):
 @click.option('--image-server', '-i', is_flag=True, help="Activate Image server")
 @click.option('--white-balance', '-w', type=(float, float), default=(None, None))
 @click.option('--interactive', is_flag=True)
+@click.option('--multicore', is_flag=True)
 def main(**kwargs):
     global params
     params = kwargs
@@ -197,19 +199,24 @@ def main(**kwargs):
                         if center:
                             move_overlay(overlay, center)
                         else:
-                            move_overlay(overlay, (0,0))
+                            move_overlay(overlay, (0,0), active=False)
                 fps.update()
 
-            proc = processor.Processor(detectors,position_callback)
+            if params["multicore"]:
+                proc_class = processor.MultiCore
+            else:
+                proc_class = processor.SingleCore
 
-            camera_setup(camera, proc)
-
+            mask = None
             if params['mask'] is not None:
                 if os.path.isfile(params['mask']):
-                    proc.mask = cv2.imread(params['mask'], 0)//255
-                    proc.mask_dwn = processor.mask[::params["downsample"], ::params["downsample"]]
+                    mask = cv2.imread(params['mask'], 0)//255
                 else:
                     raise Exception('The mask with the given filename was not found!')
+
+            proc = proc_class(detectors,position_callback, mask=mask)
+
+            camera_setup(camera, proc)
 
             if params["video_record"]:
                 camera.start_recording('{}video.h264'.format(params['img_path']), splitter_port=2, resize=params["resolution"])

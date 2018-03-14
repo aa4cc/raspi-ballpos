@@ -118,13 +118,13 @@ SharedMemory_init(SharedMemory *self, PyObject *args, PyObject *kwds)
     if (self->created){
         opts |= IPC_CREAT;
     }
-
+    /*
     if (self->size > SIZE_LIMIT) {
         char buffer[100];
         sprintf(buffer, "Size is bigger than maximum (size>%d).", SIZE_LIMIT);
         PyErr_SetString(PyExc_ValueError,buffer);
         return -1;
-    }
+    }*/
 
     if(self->size){
         if ((self->shmid = shmget(self->key, self->size, opts)) < 0) {
@@ -244,6 +244,7 @@ static PyObject * SharedMemory_write(SharedMemory* self, PyObject *args, PyObjec
             return NULL;
 
     memcpy(self->ptr+offset, b.buf, b.len);
+    PyBuffer_Release(&b);
 
     if(lockme)
         if(unlock(self)<0)
