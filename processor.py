@@ -78,7 +78,7 @@ class SingleCore(Processor):
             elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
 
 
-            c = ", ".join(("({0:6.2f}, {1:6.2f})" if math.isnan(center[2]) else "({0:6.2f}, {1:6.2f}, {2:2.2f})").format(*center) if center else "None" for center in centers)
+            c = ", ".join(("({0:6.2f}, {1:6.2f})" if math.isnan(center[2]) else "({0:6.2f}, {1:6.2f}, {2:6.4f})").format(*center) if center else "None" for center in centers)
 
             print('Frame: {:5}, center [{}], elapsed time: {:.1f}ms'.format(self.frame_number, c, elapsed_time*1000))
 
@@ -121,7 +121,7 @@ class MultiCore(Processor):
             elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
 
 
-            c = ", ".join(("({0:6.2f}, {1:6.2f})" if math.isnan(center[2]) else "({0:6.2f}, {1:6.2f}, {2:6.2f})").format(*center) if center else "None" for center in centers)
+            c = ", ".join(("({0:6.2f}, {1:6.2f})" if math.isnan(center[2]) else "({0:6.2f}, {1:6.2f}, {2:6.4f})").format(*center) if center else "None" for center in centers)
 
             print('Frame: {:5}, center [{}], elapsed time: {:.1f}ms'.format(self.frame_number, c, elapsed_time*1000))
 
@@ -130,8 +130,6 @@ class MultiCore(Processor):
         if self.stop_event.is_set():
             raise StopIteration("Number of frames done")
 
-    @profile
-    def processImage(self, image):
         self.sm.write(image)
         with self.start_cond:
             self.start_cond.notify_all()

@@ -76,6 +76,8 @@ class ImageHandler(StreamRequestHandler):
             self.wfile.write(bmp)
 
         elif protocol == "raw":
+            if image is None:
+                image = np.zeros((0,0,3),'uint8');
             print("Protocol is RAW")
             if len(image.shape) == 2:
                 self.wfile.write(struct.pack('HHH', image.shape[0], image.shape[1], 1))
