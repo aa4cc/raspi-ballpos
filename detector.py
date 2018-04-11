@@ -90,6 +90,7 @@ class ObjectDetector(Detector):
         else:
             if self.debug:
                 print("Ball mass out of mass ranges. (mass={}, lim={})".format(M['m00'], object_size_lim))
+            return None
 
         return center[0], center[1], orientation
 
@@ -209,3 +210,10 @@ class ObjectDetectorInC(ObjectDetector):
         if im is None:
             im = self.images.get("thrs", None);
         return im
+
+class BallDetectorInC(ObjectDetectorInC):
+    def __init__(self, **kwargs):
+        kwargs["object_size"] = (kwargs["ball_size"][0]/2)**2 * math.pi, (kwargs["ball_size"][1]/2)**2 * math.pi
+        kwargs["compute_orientation"] = False
+        kwargs["orientation_offset"] = 0
+        ObjectDetector.__init__(self, **kwargs)
