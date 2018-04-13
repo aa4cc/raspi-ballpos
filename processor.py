@@ -15,6 +15,7 @@ class Processor(io.BytesIO):
         self.callback = callback
         self.detectors = []
         self.image_server = None
+        self.centers = ()
 
         for detector in detectors:
             cls = detector.pop('type')
@@ -40,7 +41,15 @@ class Processor(io.BytesIO):
             self.image_server.start()
 
     def getImage(self, name):
-        return self.image
+        im = self.image
+        if im is None:
+            return None
+
+        if name == "centers":
+            im = im.copy()
+            for detector in self.detectors:
+                detector.paint_center(im)
+        return im
 
     def __iter__(self):
         return self
@@ -68,17 +77,17 @@ class SingleCore(Processor):
         data = np.fromstring(b, dtype=np.uint8)
         self.image = np.resize(data,(params["resolution"][1], params["resolution"][0], 3))
 
-        centers = self.processImage(self.image)
+        self.centers = self.processImage(self.image)
 
         if self.callback:
-            self.callback(centers)
+            self.callback(self.centers)
         
         if params['verbose']:
             e2 = cv2.getTickCount()
             elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
 
 
-            c = ", ".join(("({0:6.2f}, {1:6.2f})" if math.isnan(center[2]) else "({0:6.2f}, {1:6.2f}, {2:6.4f})").format(*center) if center else "None" for center in centers)
+            c = ", ".join(("({0:6.2f}, {1:6.2f})" if math.isnan(center[2]) else "({0:6.2f}, {1:6.2f}, {2:6.4f})").format(*center) if center else "None" for center in self.centers)
 
             print('Frame: {:5}, center [{}], elapsed time: {:.1f}ms'.format(self.frame_number, c, elapsed_time*1000))
 

@@ -39,7 +39,7 @@ class ObjectDetector(Detector):
             self.mask_dwn = None
         self.name = kwargs["name"]
         self.debug = kwargs.get("debug", 0)
-        self.images = {}
+        self.images = {"mask": self.mask}
         self.compute_orientation = kwargs.get('compute_orientation', False);
         self.orientation_offset = kwargs.get("orientation_offset", 0)
 
@@ -53,7 +53,34 @@ class ObjectDetector(Detector):
     def tracking_window_halfsize(self):
         return self.tracking_window//2
 
+    @property
+    def color(self):
+        return np.array([255 if c > 0 else 0 for c in self.color_coefs])
+
+    def paint_center(self, image):
+        if self.location:
+            x, y, t = self.location
+            x = round(x)
+            y = round(y)
+
+            size = 40
+            sx = max(x-(size//2), 0)
+            ex = min(x+(size//2), image.shape[1])
+            sy = max(y-(size//2), 0)
+            ey = min(y+(size//2), image.shape[0])
+
+            image[y,sx:ex,:] = self.color
+            image[sy:ey,x,:] = self.color
+
     def getImage(self, name):
+        if name == "center":
+            im = self.images.get("image", None)
+            if im is None:
+                return None
+            im = im.copy()
+            self.paint_center(im)
+            return im
+
         return self.images.get(name, None)
 
     #@profile
@@ -64,16 +91,18 @@ class ObjectDetector(Detector):
 
         # take a linear combination of the color channels to get a grayscale image containg only images of a desired color
         im = np.clip(image[:,:,0]*self.color_coefs[0] + image[:,:,1]*self.color_coefs[1] + image[:,:,2]*self.color_coefs[2], 0, 255).astype(np.uint8)
+        self.images[name] = im
 
         # apply a mask if it is given
         if mask is not None:
             im = cv2.bitwise_and(im, self.im, mask = mask)
 
+        self.images[name+"_masked"] = im
+
         # threshold the image
         im_thrs = cv2.inRange(im, self.threshold,255)
 
         # Store the image
-        self.images[name] = im
         self.images[name+"_thrs"] = im_thrs
 
         # Compute the moments
@@ -135,13 +164,14 @@ class ObjectDetector(Detector):
                 image_dwn = image[::self.downsample, ::self.downsample, :]
                 object_lim_dwn = self.objectlim[0]//(self.downsample**2), self.objectlim[1]//(self.downsample**2)
 
-                location = self.findTheObject(image_dwn, object_size_lim=object_lim_dwn, mask = self.mask_dwn, name="whole")
-                if not location:
+                location_dwn = self.findTheObject(image_dwn, object_size_lim=object_lim_dwn, mask = self.mask_dwn, name="downsample")
+                if not location_dwn:
                     if self.debug:
                         print('The object was not found in the whole image!')
+                    self.location = None
                     return None
 
-                center = int(self.downsample*location[0]), int(self.downsample*location[1])
+                center = int(self.downsample*location_dwn[0]), int(self.downsample*location_dwn[1])
 
                 halfsize = self.tracking_window_halfsize
                 # Find the ball in smaller image
@@ -156,10 +186,11 @@ class ObjectDetector(Detector):
 
             imageROI = image[start_y:end_y, start_x:end_x, :]
 
-            self.images["imageROI"] = imageROI
+            self.images["image_roi"] = imageROI
 
             if self.mask is not None:
                 mask_ROI = self.mask[start_y:end_y, start_x:end_x]
+                self.images["mask_roi"]
             else:
                 mask_ROI = None
 
@@ -169,6 +200,7 @@ class ObjectDetector(Detector):
             if not location_inROI:
                 if self.debug:
                     print('The object was not found in the ROI!')
+                self.location = None
                 return None
             
             # transform the measured position from ROI to full image coordinates
@@ -178,7 +210,10 @@ class ObjectDetector(Detector):
                 theta = location_inROI[2]
             else:
                 theta = NAN;
-            return x, y, theta
+
+            self.location = x, y, theta
+
+            return self.location
         except Exception as e:
             logger.exception(e)
 
