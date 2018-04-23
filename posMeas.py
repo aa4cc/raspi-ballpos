@@ -63,8 +63,6 @@ def parameter_checks():
 
     if params['verbose']:
         print('Verbose: {}'.format(params['verbose']))
-    if params['debug']:
-        print('Debug {}'.format(params["debug"]))
 
 def pre_camera_tasks():
     if params['lamp_control'] is not None:
@@ -151,11 +149,10 @@ def camera_setup(camera, processor):
     print("camera.iso: {}".format(camera.iso))
 
 @click.command()
-@click.option('--num-frames', '-n', default=0, help='Total number of frames to process')
+@click.option('--num-frames', '-n', default=0, help='Total number of frames to process, then exit')
 @click.option('--frame-rate', '-f', default=10, help='Number of frames per second to process')
 @click.option('--exposition-time', '-e', default=10, help='Exposition time (shutter speed) in milliseconds.')
-@click.option('--verbose', '-v', count=True, default=False, help='Display time needed for processing of each frame and the measured position.')
-@click.option('--debug', '-d', count=True, default=False, help='Save masks and ROIs together with the identified position of the ball.')
+@click.option('--verbose', '-v', count=True, default=False, help='Display time needed for processing of each frame and the measured positions.')
 @click.option('--resolution', '-r', type=(int, int), default=(640,480), help='Image resolution')
 @click.option('--preview', '-p', is_flag=True, default=False, help="Show preview on HDMI or display")
 @click.option('--video-record', is_flag=True, default=False, help="Record video")
