@@ -159,6 +159,8 @@ class ObjectDetector(Detector):
             end_y = params["resolution"][1]
             start_x = 0
             end_x = params["resolution"][0]
+
+            self.images["image"] = image
             # Downsample the image
             if self.downsample > 1:
                 image_dwn = image[::self.downsample, ::self.downsample, :]
@@ -181,8 +183,6 @@ class ObjectDetector(Detector):
                 end_x = min((center[0]+halfsize), params["resolution"][0])
 
                 self.images["image_dwn"] = image_dwn
-
-            self.images["image"] = image
 
             imageROI = image[start_y:end_y, start_x:end_x, :]
 

@@ -14,13 +14,18 @@ METHOD_MAP={
 }
 
 class ImageHandler(StreamRequestHandler):
+    """Handler, that handles request for image
+
+    This handler supports both HTTP GET request and proprietarry RAW protocol.
+    You can use webbrowser to access the image, or Matlab client
+    """
     def __init__(self, *args, **kwargs):
+        """Wrapper for StreamRequestHandler.__init__() to log Connection"""
         StreamRequestHandler.__init__(self, *args, **kwargs)
         print('Connected client {}:{}'.format(*self.client_address))
 
     def handle(self):
-        # self.rfile is a file-like object created by the handler;
-        # we can now use e.g. readline() instead of raw recv() calls
+        """ Parses protocol and path of the image anf call handler """
         line = self.rfile.readline()
         print("{} request: {}".format(self.client_address[0], line))
         request = line.strip().decode().split(' ')
@@ -31,10 +36,9 @@ class ImageHandler(StreamRequestHandler):
         self.handlePath(path, method)
 
     def handlePath(self, path, method):
+        """Searches image in objects, and pass it to the returnImage method"""
         path.pop(0)
         print("Request path: {}".format(path))
-        # Likewise, self.wfile is a file-like object used to write back
-        # to the client
 
         protocol = METHOD_MAP[method]
 
@@ -54,6 +58,7 @@ class ImageHandler(StreamRequestHandler):
         self.returnImage(img, protocol)
 
     def returnImage(self, image, protocol="raw"):
+        """Sends image or exception to the client"""
         if protocol == "http":
             print("Protocol is HTTP")
             if image is None:

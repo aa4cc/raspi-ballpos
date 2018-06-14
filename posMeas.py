@@ -80,6 +80,15 @@ def pre_camera_tasks():
         except ImportError:
             print("Libratry RPi.GPIO not found, light controll not possible! You can install it using 'sudo pip3 install rpi.gpio' to install library")
 
+def get_sreen_resolution():
+    try:
+        m = get_monitors()[0]
+        return m.width, m.height
+    except NotImplementedError:
+        if not all(params["screen_resolution"]):
+            raise NotImplementedError("Calculations for overlay not supported without X server, or screen resolution specified in config")
+        return params['screen_resolution']
+
 def camera_setup(camera, processor):
     camera.resolution = params["resolution"]
     # Set the framerate appropriately; too fast and the image processors
@@ -96,7 +105,8 @@ def camera_setup(camera, processor):
 
     if params['preview']:
         try:
-            screen_w, screen_h = get_monitors()[0].width, get_monitors()[0].height
+            screen_w, screen_h = get_sreen_resolution()
+            print("Screen resolutiuon: {}x{} px".format(screen_w, screen_h))
             prev_w, prev_h = camera.resolution[0], camera.resolution[1]
 
             screen_r = screen_w/screen_h
@@ -125,8 +135,8 @@ def camera_setup(camera, processor):
                     move_overlay(o, (0,0))
                     o.name = detector.name
 
-        except NotImplementedError:
-            print("Calculations for overlay not supported without X server (Cannot get monitor resolution)")
+        except NotImplementedError as e:
+            print(e)
             params["overlay"] = None
             preview = camera.start_preview()
 
@@ -167,9 +177,10 @@ def camera_setup(camera, processor):
 @click.option('--overlay-alpha', default=50, help='Overlay alpha')
 @click.option('--iso', default=200, help="ISO for camera")
 @click.option('--image-server', '-i', is_flag=True, help="Activate Image server")
-@click.option('--white-balance', '-w', type=(float, float), default=(None, None))
-@click.option('--interactive', is_flag=True)
-@click.option('--multicore', is_flag=True)
+@click.option('--white-balance', '-w', type=(float, float), default=(None, None), help="Camera white balance settings")
+@click.option('--interactive', is_flag=True, help="Start interactive Python console, to get realtime access to PiCamera object for testing purposes")
+@click.option('--multicore', is_flag=True, help="Start detectors in different processes to speedup detection")
+@click.option('--screen-resolution', type=(int, int), default=(None, None))
 def main(**kwargs):
     global params
     params = kwargs
