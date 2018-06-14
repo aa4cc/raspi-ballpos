@@ -26,6 +26,8 @@ classdef RaspiBallPos < matlab.System ...
         path = '';
         % Number of objects
         objects = 1;
+        % Calibration matrix
+        km = eye(3);
     end
     
     properties
@@ -58,7 +60,7 @@ classdef RaspiBallPos < matlab.System ...
     end
     
     methods (Access=protected)
-        function setupImpl(obj) %#ok<MANU>
+        function setupImpl(obj)
             if isempty(coder.target)
                 % Place simulation setup code here
             else
@@ -84,6 +86,8 @@ classdef RaspiBallPos < matlab.System ...
             else
                 part = double(positions(1:2,:));
             end
+            
+            part(1:2, :) = homography_transform(part(1:2, :), obj.km);
             
             found = (~all(isnan(part)))';
             
@@ -207,7 +211,7 @@ classdef RaspiBallPos < matlab.System ...
                    varargout{k} = 'double';
                 end
                 if obj.found_output
-                    varargout{obj.objects+1} = 'uint8';
+                    varargout{obj.objects+1} = 'logical';
                 end
             end
         end
@@ -276,4 +280,15 @@ classdef RaspiBallPos < matlab.System ...
             end
         end
     end
+end
+
+function y = homography_transform(x, km)
+% HOMOGRAPHY_TRANSFORM applies homographic transform to vectors
+%   Y = HOMOGRAPHY_TRANSFORM(X, V) takes a 2xN matrix, each column of which
+%   gives the position of a point in a plane. It returns a 2xN matrix whose
+%   columns are the input vectors transformed according to the homography
+%   V, represented as a 3x3 homogeneous matrix.
+q = km * [x; ones(1, size(x,2))];
+p = q(3,:);
+y = [q(1,:)./p; q(2,:)./p];
 end

@@ -4,19 +4,22 @@ clear all;
 %%
 server = '147.32.86.182';
 port = 1150;
+
+%%
 %obj = 'Detector-Red';
-obj = 'Detector-Green';
-%obj = 'Detector-Blue';
+%obj = 'Detector-Green';
+obj = 'Detector-Blue';
+threshold = 120;
 
 %dwnsample = webread(sprintf('http://%s:%d/%s/%s', server, port, obj, 'whole'));
-dwnsample = RaspiImage('147.32.86.182', 1150, obj, 'whole');
+dwnsample = RaspiImage(server, port, obj, 'downsample');
 figure(1)
 imagesc(dwnsample)
 colorbar
 
 
-%dwnsample = webread(sprintf('http://%s:%d/%s/%s', server, port, obj, 'roi'));
-roi = RaspiImage('147.32.86.182', 1150, obj, 'roi');
+%roi = webread(sprintf('http://%s:%d/%s/%s', server, port, obj, 'roi'));
+roi = RaspiImage(server, port, obj, 'roi');
 figure(2)
 imagesc(roi)
 colorbar
@@ -24,7 +27,7 @@ colorbar
 %%
 % RGB image
 figure(3)
-rgb = RaspiImage('147.32.86.182', 1150, 'Processor', 'any');
+rgb = RaspiImage(server, port, 'Processor', 'any');
 r = rgb(:,:,1);
 g = rgb(:,:,2);
 b = rgb(:,:,3);
@@ -37,6 +40,11 @@ v = hsv(:,:,3);
 
 imshow(rgb);
 
+%%
+
+rgb = RaspiImage(server, port, 'Detector-Green', 'image_dwn');
+%rgb_dwn = rgb(1:16:end, 1:16:end,:);
+imshow(rgb);
 %%
 figure(1)
 clf()
@@ -65,3 +73,11 @@ subplot(1,2,2);
 imshow(tst)
 
 
+%%
+r = RaspiImage(server, port, 'Detector-RedC', 'thrs');
+g = RaspiImage(server, port, 'Detector-GreenC', 'thrs');
+b = RaspiImage(server, port, 'Detector-BlueC', 'thrs');
+rgb = cat(3, r, g, b);
+%rgb_dwn = rgb(1:16:end, 1:16:end,:);
+imshow(rgb);
+drawnow

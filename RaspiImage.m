@@ -19,5 +19,7 @@ function [image, resolution] = RaspiImage(host, port, object, channel)
     sock.delete()
     
     image = permute(reshape(image, [resolution([3 2 1])]),[3,2,1]);
+    if ~all(resolution)        error('Image empty or not found')
+    end
 end
 
