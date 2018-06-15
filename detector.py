@@ -25,6 +25,29 @@ class Detector(object):
     def getImage(self, name):
         return None;
 
+    @classmethod
+    def fullname(cls):
+        if cls.__module__ is None or cls.__module__ == str.__class__.__module__:
+            return cls.__name__
+        return cls.__module__ + '.' + cls.__name__
+
+    @classmethod
+    def from_name(cls, name):
+        for c in cls.__subclasses_recursive__():
+            if c.fullname() == name:
+                return c
+        raise KeyError('Class "{}" is not child of "{}", or its not imported'.format(name, cls.__name__))
+
+    @classmethod
+    def __subclasses_recursive__(cls):
+        l = []
+        for c in cls.__subclasses__():
+            l.append(c)
+            l.extend(c.__subclasses_recursive__())
+        return l
+
+        
+
 class ObjectDetector(Detector):
     def __init__(self, **kwargs):
         self.objectlim = kwargs["object_size"][0] * 255, kwargs["object_size"][1] * 255

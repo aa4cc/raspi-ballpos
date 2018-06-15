@@ -11,14 +11,9 @@ import os.path
 import logging
 from fractions import Fraction
 
-try:
-    # Add the parent directory to the path
-    import os.path, sys
-    sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
-    from config import config, detectors
-except ImportError as ex:
-    logging.exception(ex)
-    sys.exit('No default configuration file found')
+from interface import app
+
+from parameters import Parameters
 
 from sharepos import SharedPosition
 import detector
@@ -31,7 +26,7 @@ from imutils.video import FPS
 # Order of addding color components
 
 # Global variables
-params = {}
+params = Parameters("../config.json")
 NAN = float('nan')
 
 def gen_overlay(arg):
@@ -65,6 +60,9 @@ def parameter_checks():
         print('Verbose: {}'.format(params['verbose']))
 
 def pre_camera_tasks():
+    if params['web_interface']:
+        app.start()
+
     if params['lamp_control'] is not None:
         try:
             import RPi.GPIO as GPIO
@@ -181,9 +179,10 @@ def camera_setup(camera, processor):
 @click.option('--interactive', is_flag=True, help="Start interactive Python console, to get realtime access to PiCamera object for testing purposes")
 @click.option('--multicore', is_flag=True, help="Start detectors in different processes to speedup detection")
 @click.option('--screen-resolution', type=(int, int), default=(None, None))
+@click.option('--web-interface', is_flag=True)
 def main(**kwargs):
     global params
-    params = kwargs
+    params.update(kwargs)
     detector.params = params
     processor.params = params
 
@@ -192,10 +191,12 @@ def main(**kwargs):
     camera = None
     proc = None
 
-    shared_position = SharedPosition(len(detectors))
+    shared_position = SharedPosition(len(params.detectors))
     try:
         fps = FPS().start()
         with picamera.PiCamera() as camera:
+            app.camera = camera #for access with webserver
+            
             def position_callback(centers):
                 # Write the measured position to the shared memory
                 shared_position.write_many(center if center else (NAN, NAN, NAN) for center in centers)
@@ -222,7 +223,7 @@ def main(**kwargs):
                 else:
                     raise Exception('The mask with the given filename was not found!')
 
-            proc = proc_class(detectors,position_callback, mask=mask)
+            proc = proc_class(params.detectors,position_callback, mask=mask)
 
             camera_setup(camera, proc)
 
@@ -272,4 +273,4 @@ def main(**kwargs):
             GPIO.cleanup()
 
 if __name__=='__main__':
-    main(default_map=config)
+    main(default_map=params.data)

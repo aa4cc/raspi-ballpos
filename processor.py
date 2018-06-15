@@ -6,6 +6,7 @@ import image_server
 from pprint import pprint
 from multiprocessing import Process, Event, Queue, Condition
 from sharemem import SharedMemory
+from detector import Detector
 import math
 
 class Processor(io.BytesIO):
@@ -18,7 +19,8 @@ class Processor(io.BytesIO):
         self.centers = ()
 
         for detector in detectors:
-            cls = detector.pop('type')
+            cls_name = detector.pop('type')
+            cls = Detector.from_name(cls_name)
             self.detectors.append(cls(mask=mask, **detector))
 
         if self.detectors:
