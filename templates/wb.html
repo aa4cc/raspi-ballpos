@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 	<head>
@@ -21,31 +20,60 @@
 		<!-- Bootstrap core CSS -->
 		<link href="/static/css/bootstrap.min.css" rel="stylesheet">
 		<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css" integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp" crossorigin="anonymous">
+		<link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
 		<!-- Custom styles for this template -->
 	</head>
 
 	<body>
-		<h1> Camera features </h1>
-		{%for detector in processor.detectors%}
+		<h1>White balance {{step}}</h1>
+		<img src="/image/wb" style="width:50% margin: 10px"/>
 		<div>
-			<h2>{{detector.name}}</h2>
-			<img src="/image/{{detector.name}}/image" style="width:19%"/>
-			<img src="/imagesc/{{detector.name}}/downsample" style="width:19%"/>
-			<img src="/imagesc/{{detector.name}}/downsample_thrs" style="width:19%"/>
-			<img src="/imagesc/{{detector.name}}/roi" style="width:19%"/>
-			<img src="/imagesc/{{detector.name}}/roi_thrs" style="width:19%"/>
-		</div>
-		{%endfor%}
+			<div style="border: 3px solid; width:300px; margin: 10px">
+				<div id="R" style="background-color: #FF0000; width: 20%; height: 25px"></div>
+				<div id="G" style="background-color: #00FF00; width: 20%; height: 25px"></div>
+				<div id="B" style="background-color: #0000FF; width: 20%; height: 25px"></div>
+			</div>
+			<div id="a" class="slider"></div>
+			<div id="b" class="slider"></div>
+		{% if step==100 %}
 		<h2>Params:</h2>
 		<pre>{{params}}</pre>
-
+		{% endif %}
 		<!-- Bootstrap core JavaScript
 		================================================== -->
 		<!-- Placed at the end of the document so the pages load faster -->
 		<script src="https://code.jquery.com/jquery-3.3.1.min.js" crossorigin="anonymous"></script>
-		<script>window.jQuery || document.write('<script src="/static/js/vendor/jquery-slim.min.js"><\/script>')</script>
+		<script>window.jQuery || document.write('<script src="/static/js/jquery-3.3.1.min.js"><\/script>')</script>
 		<script src="/static/js/bootstrap.bundle.min.js"></script>
 		<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
-		
+		<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+		<script>
+		    function updateImage() {
+			    var image = $("img");
+		        src = image.attr("src");
+		        src = src.split("?")[0] + "?" + new Date().getTime();
+		        image.attr("src", src)
+		        $.getJSON("/wb/value", function(value){
+		        	$("#R").width((value[0]/255*100) + "%")
+		        	$("#G").width((value[1]/255*100) + "%")
+		        	$("#B").width((value[2]/255*100) + "%")
+		        })
+		    }
+		    
+			$(function(){
+			    $( ".slider" ).slider({
+			    	change: function (){
+				    	console.log("change")
+				    	a = $("#a").slider("value")/100.0 * 3
+				    	b = $("#b").slider("value")/100.0 * 3
+				    	$.get("/wb/value/"+a+","+b)
+				    	console.log(a,b)
+				    }
+			    });
+			    $(".slider").on()
+			    $(".slider").css("margin", "10px").width("300px")
+			    setInterval(updateImage, 250);
+			});
+		</script>
 	</body>
 </html>

@@ -16,6 +16,7 @@ class Processor(io.BytesIO):
         self.callback = callback
         self.detectors = []
         self.image_server = None
+        self.image = None
         self.centers = ()
 
         for detector in detectors:
@@ -52,6 +53,12 @@ class Processor(io.BytesIO):
             for detector in self.detectors:
                 detector.paint_center(im)
         return im
+
+    def getDetector(self, name):
+        for detector in self.detectors:
+            if detector.name == name:
+                return detector
+        raise KeyError("Detector not found")
 
     def __iter__(self):
         return self

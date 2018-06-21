@@ -181,10 +181,10 @@ def camera_setup(camera, processor):
 @click.option('--screen-resolution', type=(int, int), default=(None, None))
 @click.option('--web-interface', is_flag=True)
 def main(**kwargs):
-    global params
     params.update(kwargs)
     detector.params = params
     processor.params = params
+    app.params = params
 
     parameter_checks()
     pre_camera_tasks()
@@ -224,7 +224,7 @@ def main(**kwargs):
                     raise Exception('The mask with the given filename was not found!')
 
             proc = proc_class(params.detectors,position_callback, mask=mask)
-
+            app.processor = proc
             camera_setup(camera, proc)
 
             if params["video_record"]:
