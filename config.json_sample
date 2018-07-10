@@ -1,66 +1,32 @@
 {
 	"_annotate": "black",
-	"screen_resolution": [
-		800,
-		480
-	],
-	"white_balance": [
-		1.05,
-		1.95
-	],
-	"file": "../config.json",
+	"screen_resolution": [800,480],
+	"white_balance": [1.05, 1.95],
 	"detectors": [
 		{
-			"_type": "detector.BallDetectorInC",
-			"threshold": 50,
+			"threshold": 18,
 			"tracking_window": 80,
 			"downsample": 8,
-			"ball_size": [
-				0,
-				150
-			],
-			"_name": "BlueC",
-			"color_coefs": [
-				-0.5,
-				-0.5,
-				1
-			],
+			"ball_size": [0,150],
+			"color_coefs": [-0.5,-0.5,1],
 			"type": "detector.BallDetector",
 			"name": "Blue"
 		},
 		{
-			"_type": "detector.BallDetectorInC",
 			"threshold": 110,
 			"tracking_window": 64,
 			"downsample": 8,
-			"ball_size": [
-				0,
-				150
-			],
-			"_name": "RedC",
-			"color_coefs": [
-				1,
-				-0.5,
-				-0.5
-			],
+			"ball_size": [0,150],
+			"color_coefs": [1,-0.5,-0.5],
 			"type": "detector.BallDetector",
 			"name": "Red"
 		},
 		{
-			"_type": "detector.BallDetectorInC",
 			"threshold": 15,
 			"tracking_window": 64,
 			"downsample": 8,
-			"ball_size": [
-				0,
-				15000
-			],
-			"_name": "GreenC",
-			"color_coefs": [
-				-0.65,
-				1,
-				-0.65
-			],
+			"ball_size": [0,15000],
+			"color_coefs": [-0.65,1,-0.65],
 			"type": "detector.BallDetector",
 			"name": "Green"
 		}
@@ -71,9 +37,6 @@
 	"frame_rate": 50,
 	"img_path": "/home/pi/img/",
 	"hflip": true,
-	"overlay": "2",
-	"resolution": [
-		480,
-		480
-	]
+	"overlay": 2,
+	"resolution": [480,	480]
 }
