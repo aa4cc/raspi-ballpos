@@ -83,7 +83,8 @@ def setup(camera, params, processor):
                     len(processor.detectors),
                     offset=offset,
                     size=params["overlay"],
-                    alpha=params["overlay_alpha"]
+                    alpha=params["overlay_alpha"],
+                    scale=scale
                 )
 
         except NotImplementedError as e:
