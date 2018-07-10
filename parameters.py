@@ -5,6 +5,7 @@ class Parameters():
     def __init__(self, file=None):
         self.data = {}
         self.file = file
+        self.runtime = {}
         if self.file is not None:
             self.load()
 
@@ -47,6 +48,9 @@ class Parameters():
 
     def __repr__(self):
          return pformat(self.data)
+
+    def __contains__(self, key):
+        return key in self.data
 
 if __name__ == '__main__':
     p = Parameters("../config.json")

@@ -4,7 +4,9 @@ import cv2
 from profilehooks import profile
 import image_server
 from pprint import pprint
-from multiprocessing import Process, Event, Queue, Condition
+from multiprocessing import Process, Queue, Condition
+import multiprocessing
+import threading
 from sharemem import SharedMemory
 from detector import Detector
 import math
@@ -18,6 +20,8 @@ class Processor(io.BytesIO):
         self.image_server = None
         self.image = None
         self.centers = ()
+        self.stop_event = threading.Event()
+        self.thread = None
 
         for detector in detectors:
             cls_name = detector.pop('type')
@@ -64,7 +68,7 @@ class Processor(io.BytesIO):
         return self
 
     def __next__(self):
-        if self.frame_number >= params["num_frames"] > 0:
+        if ("num_frames") in params and (self.frame_number >= params["num_frames"] > 0):
             raise StopIteration("Number of frames done")
         return self
 
@@ -72,6 +76,8 @@ class Processor(io.BytesIO):
         return "<{}.{}(len(detectors)={})>".format(self.__module__, self.__class__.__name__, len(self.detectors))
 
     def stop(self):
+        self.stop_event.set()
+
         for detector in self.detectors:
             detector.stop()
 
@@ -80,6 +86,9 @@ class Processor(io.BytesIO):
         
 class SingleCore(Processor):
     def write(self, b):
+        if self.stop_event.is_set():
+            raise StopIteration("Stop proccessing requested")
+
         if params["verbose"] > 0:
             e1 = cv2.getTickCount()
 
@@ -113,7 +122,7 @@ class MultiCore(Processor):
         key = kwargs.get("key", 123456)
         self.sm = SharedMemory(key, params["resolution"][0]*params["resolution"][0]*3)
         self.start_cond = Condition()
-        self.stop_event = Event()
+        self.stop_event = multiprocessing.Event()
         self.workers = [MultiCore.Worker(detector=detector, key = key, start_cond=self.start_cond, stop_event=self.stop_event).start() for detector in self.detectors]
         print("Multicore workers:")
         for worker in self.workers:

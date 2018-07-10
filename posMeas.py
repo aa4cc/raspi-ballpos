@@ -179,7 +179,7 @@ def camera_setup(camera, processor):
 @click.option('--interactive', is_flag=True, help="Start interactive Python console, to get realtime access to PiCamera object for testing purposes")
 @click.option('--multicore', is_flag=True, help="Start detectors in different processes to speedup detection")
 @click.option('--screen-resolution', type=(int, int), default=(None, None))
-@click.option('--web-interface', is_flag=True)
+@click.option('--web-interface/--no-web-interface', is_flag=True, default=True)
 def main(**kwargs):
     params.update(kwargs)
     detector.params = params

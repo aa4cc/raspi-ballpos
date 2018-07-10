@@ -36,15 +36,30 @@ def add_header(r):
     Add headers to both force latest IE rendering engine or Chrome Frame,
     and also to cache the rendered page for 10 minutes.
     """
-    r.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    r.headers["Cache-Control"] = "public, max-age=0, no-cache, no-store, must-revalidate"
     r.headers["Pragma"] = "no-cache"
     r.headers["Expires"] = "0"
-    r.headers['Cache-Control'] = 'public, max-age=0'
     return r
 
 @app.route('/')
-def index():
-    return render_template("index.html", camera=app.camera, processor=app.processor, params=app.params)
+@app.route('/detector/<detector>')
+def index(detector=None):
+    if detector is None:
+        detectors = app.processor.detectors
+    else:
+        detectors = filter(lambda d: d.name == detector, app.processor.detectors)
+    return render_template("index.html", camera=app.camera, processor=app.processor, params=app.params, detectors=detectors)
+
+@app.route('/detector/<detector>/threshold/<int:threshold>')
+def set_threshold(detector, threshold):
+    detectors = filter(lambda d: d.name == detector, app.processor.detectors)
+
+    try:
+        next(iter(detectors)).threshold = threshold
+    except StopIteration:
+        abort(404)
+
+    return "Ok"
 
 @app.route('/image')
 @app.route('/image/<object>')
@@ -101,7 +116,7 @@ def wb_set(a,b):
 
 @app.route('/image/wb')
 def image_wb():
-    image = getImage()
+    image = getImage("processor", "centers")
     if image is None:
         abort(404);
 
