@@ -28,7 +28,6 @@ from imutils.video import FPS
 # Global variables
 logger = logging.getLogger(__name__)
 params = Parameters("defaults.json")
-params.load("../config.json")
 NAN = float('nan')
 
 def get_sreen_resolution():
@@ -158,6 +157,7 @@ def service(params, processor):
 
 
 @click.command()
+@click.option('--config-file', '-c', default="../config.json", type=click.Path(exists=True), help="Path to config file")
 @click.option('--frame-rate', '-f', default=10, help='Number of frames per second to process')
 @click.option('--verbose', '-v', count=True, default=False, help='Display time needed for processing of each frame and the measured positions.')
 @click.option('--preview', '-p', is_flag=True, default=False, help="Show preview on HDMI or display")
@@ -167,6 +167,7 @@ def service(params, processor):
 @click.option('--multicore', is_flag=True, help="Start detectors in different processes to speedup detection")
 @click.option('--web-interface/--no-web-interface', is_flag=True, default=True)
 def main(**kwargs):
+    params.load(kwargs["config_file"])
     params.update(kwargs)
     detector.params = params
     processor.params = params
