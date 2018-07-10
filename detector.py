@@ -66,6 +66,19 @@ class ObjectDetector(Detector):
         self.compute_orientation = kwargs.get('compute_orientation', False);
         self.orientation_offset = kwargs.get("orientation_offset", 0)
 
+        kernel_dwn = kwargs.get("kernel_dwn", None)
+        kernel_roi = kwargs.get("kernel_roi", None)
+
+        if kernel_dwn is not None:
+            self.kernel_dwn = np.matrix((kernel_dwn),np.uint8)
+        else:
+            self.kernel_dwn = None
+        
+        if kernel_roi is not None:
+            self.kernel_roi = np.matrix((kernel_roi),np.uint8)
+        else:
+            self.kernel_roi = None
+
         print("Object mass must be between {:.0f} px^2 and {:.0f} px^2".format(self.objectlim[0]/255, self.objectlim[1]/255))
         print("Image channel combination coefficients: ({})".format(self.color_coefs))
 
@@ -107,7 +120,7 @@ class ObjectDetector(Detector):
         return self.images.get(name, None)
 
     #@profile
-    def findTheObject(self, image, object_size_lim = None, mask = None, name = None, compute_orientation = False):
+    def findTheObject(self, image, object_size_lim=None, mask=None, name=None, compute_orientation=False, kernel=None):
         # Initialize orientation and center to None
         orientation = None
         center = None
@@ -124,6 +137,9 @@ class ObjectDetector(Detector):
 
         # threshold the image
         im_thrs = cv2.inRange(im, self.threshold,255)
+
+        if kernel is not None:
+            im_thrs = cv2.erode(im_thrs,kernel, iterations = 1)
 
         # Store the image
         self.images[name+"_thrs"] = im_thrs
@@ -189,7 +205,7 @@ class ObjectDetector(Detector):
                 image_dwn = image[::self.downsample, ::self.downsample, :]
                 object_lim_dwn = self.objectlim[0]//(self.downsample**2), self.objectlim[1]//(self.downsample**2)
 
-                location_dwn = self.findTheObject(image_dwn, object_size_lim=object_lim_dwn, mask = self.mask_dwn, name="downsample")
+                location_dwn = self.findTheObject(image_dwn, object_size_lim=object_lim_dwn, mask=self.mask_dwn, name="downsample", kernel=self.kernel_dwn)
                 if not location_dwn:
                     if self.debug:
                         print('The object was not found in the whole image!')
@@ -218,7 +234,7 @@ class ObjectDetector(Detector):
                 mask_ROI = None
 
             # Find the ball in the region of interest
-            location_inROI = self.findTheObject(imageROI, object_size_lim=self.objectlim, mask=mask_ROI, name="roi", compute_orientation = self.compute_orientation)
+            location_inROI = self.findTheObject(imageROI, object_size_lim=self.objectlim, mask=mask_ROI, name="roi", compute_orientation=self.compute_orientation, kernel=self.kernel_roi)
             # If the ball is not found, raise an exception
             if not location_inROI:
                 if self.debug:
