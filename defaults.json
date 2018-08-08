@@ -1,5 +1,5 @@
 {
-"frame_rate": 10,
+"frame_rate": 50,
 "exposition_time": 10,
 "verbose": false,
 "resolution" : [640,480],

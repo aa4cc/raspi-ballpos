@@ -50,7 +50,10 @@ class Detector(object):
 
 class ObjectDetector(Detector):
     def __init__(self, **kwargs):
-        self.objectlim = kwargs["object_size"][0] * 255, kwargs["object_size"][1] * 255
+        if "object_size" in kwargs:
+            self.objectlim = kwargs["object_size"][0] * 255, kwargs["object_size"][1] * 255
+        else:
+            self.objectlim = None
         self.color_coefs = kwargs["color_coefs"]
         self.downsample = kwargs["downsample"]
         self.threshold = kwargs["threshold"]
@@ -79,7 +82,8 @@ class ObjectDetector(Detector):
         else:
             self.kernel_roi = None
 
-        print("Object mass must be between {:.0f} px^2 and {:.0f} px^2".format(self.objectlim[0]/255, self.objectlim[1]/255))
+        if self.objectlim:
+            print("Object mass must be between {:.0f} px^2 and {:.0f} px^2".format(self.objectlim[0]/255, self.objectlim[1]/255))
         print("Image channel combination coefficients: ({})".format(self.color_coefs))
 
     def __repr__(self):
@@ -182,11 +186,21 @@ class ObjectDetector(Detector):
 
         # rot = np.array([-math.sin(theta), math.cos(theta)])
         # coords = np.array([i-center[0], j-center[1]])
-        tmp = (i-center[0])*(-math.sin(theta)) + (j-center[1])*math.cos(theta)
+        tmpx = (i-center[0])*(-math.sin(theta)) + (j-center[1])*math.cos(theta)
+        tmpy = (i-center[0])*(math.cos(theta)) + (j-center[1])*math.sin(theta)
 
-        if np.sum(tmp**3) > 0:
-            # Fix direction
-            theta += math.pi;
+        mx = np.sum(tmpx**3)
+        my = np.sum(tmpy**3)
+
+        if abs(mx) > abs(my):
+            if mx < 0:
+                # Fix direction
+                theta += math.pi;
+        else:
+            if my < 0:
+                # Fix direction
+                theta += math.pi;
+
 
         theta += self.orientation_offset
 
@@ -203,7 +217,11 @@ class ObjectDetector(Detector):
             # Downsample the image
             if self.downsample > 1:
                 image_dwn = image[::self.downsample, ::self.downsample, :]
-                object_lim_dwn = self.objectlim[0]//(self.downsample**2), self.objectlim[1]//(self.downsample**2)
+
+                if self.objectlim:
+                    object_lim_dwn = self.objectlim[0]//(self.downsample**2), self.objectlim[1]//(self.downsample**2)
+                else:
+                    object_lim_dwn = None
 
                 location_dwn = self.findTheObject(image_dwn, object_size_lim=object_lim_dwn, mask=self.mask_dwn, name="downsample", kernel=self.kernel_dwn)
                 if not location_dwn:

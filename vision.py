@@ -112,46 +112,51 @@ def setup(camera, params, processor):
 
 def run(params, processor):
     with picamera.PiCamera() as camera:
-        shared_position = SharedPosition(len(params.detectors))
-        setup(camera, params, processor)
-        def position_callback(centers):
-            # Write the measured position to the shared memory
-            if shared_position:
-                shared_position.write_many(center if center else (NAN, NAN, NAN) for center in centers)
+        try:
+            shared_position = SharedPosition(len(params.detectors))
+            setup(camera, params, processor)
+            def position_callback(centers):
+                # Write the measured position to the shared memory
+                if shared_position:
+                    shared_position.write_many(center if center else (NAN, NAN, NAN) for center in centers)
 
-            if params["preview"] and params["annotate"]:
-                camera.annotate_text = "Position:\n   {}".format("\n   ".join(map(str, centers)))
-            if params["preview"] and params["overlay"]:
-                for o, center in zip(camera.overlays, centers):
-                    if center:
-                        overlays.move(o, center, alpha=params["overlay_alpha"])
-                    else:
-                        overlays.move(o)
-            fps.update()
-        processor.callback = position_callback
+                if params["preview"] and params["annotate"]:
+                    camera.annotate_text = "Position:\n   {}".format("\n   ".join(map(str, centers)))
+                if params["preview"] and params["overlay"]:
+                    for o, center in zip(camera.overlays, centers):
+                        if center:
+                            overlays.move(o, center, alpha=params["overlay_alpha"])
+                        else:
+                            overlays.move(o)
+                fps.update()
+            processor.callback = position_callback
 
 
-        if params['web_interface']:
-            web_interface.camera = camera #for access with webserver
-            web_interface.processor = processor
-            web_interface.start()
+            if params['web_interface']:
+                web_interface.camera = camera #for access with webserver
+                web_interface.processor = processor
+                web_interface.start()
 
-        if params["video_record"]:
-            camera.start_recording('{}video.h264'.format(params['img_path']), splitter_port=2, resize=params["resolution"])
+            if params["video_record"]:
+                fName = '{}/video.h264'.format(params['img_path'])
+                camera.start_recording(fName, splitter_port=2, resize=params["resolution"])
+                print("Recording video to:",fName)
 
-        fps = FPS().start()
-        print("Starting capture")
-        camera.capture_sequence(processor, use_video_port=True, format="rgb")
-        fps.stop()
+            fps = FPS().start()
+            print("Starting capture")
+            camera.capture_sequence(processor, use_video_port=True, format="rgb")
+        finally:
+            fps.stop()
 
-        if params["video_record"]:
-            camera.stop_recording(splitter_port=2)
+            if params["video_record"]:
+                camera.stop_recording(splitter_port=2)
+                print("Stop recording...")
 
-        if params["preview"]:
-            camera.stop_preview()
+            if params["preview"]:
+                camera.stop_preview()
 
-        print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-        print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+            print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+            print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
 
 def service(params, processor):
     run(params, processor)
