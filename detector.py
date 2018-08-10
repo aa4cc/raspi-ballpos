@@ -193,11 +193,11 @@ class ObjectDetector(Detector):
         my = np.sum(tmpy**3)
 
         if abs(mx) > abs(my):
-            if mx < 0:
+            if mx > 0:
                 # Fix direction
                 theta += math.pi;
         else:
-            if my < 0:
+            if my > 0:
                 # Fix direction
                 theta += math.pi;
 

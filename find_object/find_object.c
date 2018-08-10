@@ -69,19 +69,28 @@ static int find_location(float result[], Color_t image[], uint8_t image_thrs[],
         float minus_sin_theta = -sin(theta);
         float cos_theta = cos(theta);
 
-        float sum_tmp=0;
+        float sum_x_tmp=0;
+        float sum_y_tmp = 0;
 	    for(y_ind=start_y; y_ind<end_y; y_ind += downsample){ 
 	        for(x_ind=start_x; x_ind<end_x; x_ind += downsample){
                 if(*pixel(image_thrs, x_ind, y_ind)){
-                    float tmp = (x_ind-x)*minus_sin_theta + (y_ind-y)*cos_theta;
-                    sum_tmp += tmp*tmp*tmp;
+                    float tmp_x = (x_ind-x)*minus_sin_theta + (y_ind-y)*cos_theta;
+                    float tmp_y = (x_ind-x)*cos_theta - (y_ind-y)*minus_sin_theta;
+                    sum_x_tmp += tmp_x*tmp_x*tmp_x;
+                    sum_y_tmp += tmp_y*tmp_y*tmp_y;
                 }
             }
         }
-        if(sum_tmp>0){
-            theta += M_PI;
-        }
 
+        if (abs(sum_x_tmp) > abs(sum_y_tmp)) {
+	        if(sum_x_tmp>0){
+	            theta += M_PI;
+	        }
+	    } else {
+	    	if(sum_y_tmp>0){
+	            theta += M_PI;
+	        }
+	    }
 
         theta += orientation_offset;
 
