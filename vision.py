@@ -138,7 +138,7 @@ def run(params, processor):
                 web_interface.start()
 
             if params["video_record"]:
-                fName = '{}/video.h264'.format(params['img_path'])
+                fName = os.path.join(params['img_path'],'video.h264')
                 camera.start_recording(fName, splitter_port=2, resize=params["resolution"])
                 print("Recording video to:",fName)
 
