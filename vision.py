@@ -112,6 +112,8 @@ def setup(camera, params, processor):
 
 def run(params, processor):
     with picamera.PiCamera() as camera:
+        fps = None
+        recording = False
         try:
             shared_position = SharedPosition(len(params.detectors))
             setup(camera, params, processor)
@@ -138,25 +140,33 @@ def run(params, processor):
                 web_interface.start()
 
             if params["video_record"]:
-                fName = os.path.join(params['img_path'],'video.h264')
-                camera.start_recording(fName, splitter_port=2, resize=params["resolution"])
-                print("Recording video to:",fName)
+                try:
+                    fName = os.path.join(params['img_path'],'video.h264')
+                    camera.start_recording(fName, splitter_port=2, resize=params["resolution"])
+                    recording = True
+                    print("Recording video to:",fName)
+                except FileNotFoundError:
+                    print("Directory to store video recording ({}) not found or not accessible".format(fName))
+                    return
 
             fps = FPS().start()
             print("Starting capture")
             camera.capture_sequence(processor, use_video_port=True, format="rgb")
-        finally:
-            fps.stop()
 
-            if params["video_record"]:
+        finally:
+            if fps:
+                fps.stop()
+
+            if params["video_record"] and recording:
                 camera.stop_recording(splitter_port=2)
                 print("Stop recording...")
 
             if params["preview"]:
                 camera.stop_preview()
 
-            print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-            print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+            if fps:
+                print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+                print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
 
 def service(params, processor):
     run(params, processor)
