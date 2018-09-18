@@ -27,10 +27,16 @@ class Processor(io.BytesIO):
             self.recreate_detectors(detectors)
 
     def recreate_detectors(self, detectors):
+        for detector in self.detectors:
+            detector.stop()
+
+        self.detectors = []
+
         for detector in detectors:
             cls_name = detector.pop('type')
             cls = Detector.from_name(cls_name)
             self.detectors.append(cls(mask=self.mask, **detector))
+            detector['type'] = cls_name
 
         if self.detectors:
             print("Active detectors:")
