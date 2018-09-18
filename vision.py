@@ -112,6 +112,8 @@ def setup(camera, params, processor):
 
 def run(params, processor):
     with picamera.PiCamera() as camera:
+        processor.recreate_detectors(params.detectors)
+        shared_position = None
         fps = None
         recording = False
         try:
@@ -137,7 +139,6 @@ def run(params, processor):
             if params['web_interface']:
                 web_interface.camera = camera #for access with webserver
                 web_interface.processor = processor
-                web_interface.start()
 
             if params["video_record"]:
                 try:
@@ -166,10 +167,20 @@ def run(params, processor):
 
             if fps:
                 print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-                print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+                print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))     
+        shared_position = None 
 
 def service(params, processor):
-    run(params, processor)
+    if params['web_interface']:
+        web_interface.start()
+
+    while not processor.is_stopped():
+        try:
+            processor.stop_event.clear()
+            run(params, processor)
+        except KeyboardInterrupt:
+            break
+
 
 
 @click.command()
@@ -214,7 +225,7 @@ def main(**kwargs):
     else:
         proc_class = processor.SingleCore
 
-    proc = proc_class(params.detectors, mask=mask)
+    proc = proc_class(mask=mask)
 
     if not params["interactive"]:
         try:

@@ -12,21 +12,25 @@ from detector import Detector
 import math
 
 class Processor(io.BytesIO):
-    def __init__(self, detectors, callback=None, mask=None):
+    def __init__(self, detectors=None, callback=None, mask=None):
         super().__init__()
         self.frame_number = 0;
         self.callback = callback
         self.detectors = []
-        self.image_server = None
         self.image = None
         self.centers = ()
         self.stop_event = threading.Event()
         self.thread = None
+        self.restart_flag = False
+        self.mask = mask
+        if detectors:
+            self.recreate_detectors(detectors)
 
+    def recreate_detectors(self, detectors):
         for detector in detectors:
             cls_name = detector.pop('type')
             cls = Detector.from_name(cls_name)
-            self.detectors.append(cls(mask=mask, **detector))
+            self.detectors.append(cls(mask=self.mask, **detector))
 
         if self.detectors:
             print("Active detectors:")
@@ -35,17 +39,6 @@ class Processor(io.BytesIO):
         else:
             print('No detectors active')
 
-        if params['image_server']:
-            print("Starting TCP image server")
-            objects = {}
-            for detector in self.detectors:
-                objects["Detector-{}".format(detector.name)] = detector
-            objects["Processor"] = self
-
-            pprint(objects)
-
-            self.image_server = image_server.ImageServer(objects=objects)
-            self.image_server.start()
 
     def getImage(self, name):
         im = self.image
@@ -75,14 +68,21 @@ class Processor(io.BytesIO):
     def __repr__(self):
         return "<{}.{}(len(detectors)={})>".format(self.__module__, self.__class__.__name__, len(self.detectors))
 
+    def is_stopped(self):
+        return self.stop_event.is_set() and not self.restart_flag
+
+    def restart(self):
+        self.restart_flag = True
+        self.stop_event.set()
+        for detector in self.detectors:
+            detector.stop()
+
     def stop(self):
+        self.restart_flag = False
         self.stop_event.set()
 
         for detector in self.detectors:
             detector.stop()
-
-        if self.image_server:
-            self.image_server.shutdown()
         
 class SingleCore(Processor):
     def write(self, b):

@@ -5,7 +5,7 @@ import logging
 import subprocess
 import cv2
 from threading import Lock, Thread
-from flask import Flask, render_template, make_response, Response, abort, jsonify
+from flask import Flask, render_template, make_response, Response, abort, jsonify, request
 from io import BytesIO
 
 import matplotlib
@@ -15,6 +15,7 @@ import numpy as np
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
+app.thread = None
 
 plot_lock = Lock()
 
@@ -49,6 +50,28 @@ def index(detector=None):
     else:
         detectors = filter(lambda d: d.name == detector, app.processor.detectors)
     return render_template("index.html", camera=app.camera, processor=app.processor, params=app.params, detectors=detectors)
+
+@app.route('/restart')
+def restart():
+    app.processor.restart();
+    return 'OK <a href="/">Back</a>'
+
+@app.route('/config')
+def config():
+	return jsonify(dict(app.params))
+
+@app.route('/config', methods=('POST',))
+def config_post():
+	data = request.get_json()
+	app.params.update(data)
+	return jsonify(dict(app.params))
+
+@app.route('/config/loadfile', methods=('POST',))
+def config_loadfile():
+	filename = request.data
+	app.params.load(filename)
+	app.processor.restart()
+	return jsonify(dict(app.params))
 
 @app.route('/detector/<detector>/threshold/<int:threshold>')
 def set_threshold(detector, threshold):
@@ -128,10 +151,11 @@ def image_wb():
 
 
 def start():
-    app.thread = Thread(target=app.run, daemon=True, kwargs={"host": "0.0.0.0", "port": 5001, "debug":True, "use_reloader":False})
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)
-    app.thread.start()
+    if not app.thread:
+        app.thread = Thread(target=app.run, daemon=True, kwargs={"host": "0.0.0.0", "port": 5001, "debug":True, "use_reloader":False})
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
+        app.thread.start()
 
 app.start = start
 
