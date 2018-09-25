@@ -8,7 +8,7 @@ We recomend you not to use virtuakenvs on Raspberry Pi it this is the only one p
 
 ## Instalation
 1) git clone https://github.com/aa4cc/raspi-ballpos.git
-1) cp raspi-ballpos/config_sample.py config.py
+1) cp raspi-ballpos/config.json_sample config.json
 1) Edit your configuration using your favourite editor
 1) cd raspi-ballpos
 1) run posMeas.py -ivp and see the result
