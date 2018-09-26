@@ -11,10 +11,10 @@ We recomend you not to use virtuakenvs on Raspberry Pi it this is the only one p
 1) Install required Python modules by running ```sudo pip3 install picamera click flask matplotlib profilehooks screeninfo imutils RPi.GPIO```
 1) git clone https://github.com/aa4cc/raspi-ballpos.git
 1) Compile _sharemem_ module by running ```sudo ./sharemem/install```
-1) cp raspi-ballpos/config.json_sample config.json
+1) ```cp raspi-ballpos/config.json_sample config.json```
 1) Edit your configuration using your favourite editor
-1) cd raspi-ballpos
-1) run posMeas.py -ivp and see the result
+1) ```cd raspi-ballpos```
+1) run ```posMeas.py -ivp``` and see the result
 
 ## Usage
 Usage: posMeas.py [OPTIONS]
