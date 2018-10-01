@@ -1,0 +1,17 @@
+[Unit]
+Description=PosMeas service
+#Requires=xserver.target
+
+[Service]
+Type=simple
+Environment="DISPLAY=:0.0"
+User=pi
+ExecStart=/usr/bin/python3 /home/pi/MagmanRaspberry/raspi-ballpos/vision.py -p
+WorkingDirectory=/home/pi/MagmanRaspberry/raspi-ballpos
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=vision
+
+[Install]
+#Requires=xserver.target
+WantedBy=xserver.target
