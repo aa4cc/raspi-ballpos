@@ -51,6 +51,10 @@ def index(detector=None):
         detectors = filter(lambda d: d.name == detector, app.processor.detectors)
     return render_template("index.html", camera=app.camera, processor=app.processor, params=app.params, detectors=detectors)
 
+@app.route('/centers')
+def centers():
+    return jsonify(app.processor.centers)
+
 @app.route('/restart')
 def restart():
     app.processor.restart();
