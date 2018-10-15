@@ -1,4 +1,6 @@
 import logging
+import time
+import RPi.GPIO as GPIO
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,7 @@ def init():
         logger.error("Libratry RPi.GPIO not found, light controll not possible! You can install it using 'sudo pip3 install rpi.gpio' to install library")
 
 def deinit():
-    GPIO.output(params['lamp_control'], False);
+    GPIO.output(pin, False);
     GPIO.cleanup()
 
 def on():

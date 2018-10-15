@@ -38,5 +38,7 @@
 	"img_path": "/home/pi/img/",
 	"hflip": true,
 	"overlay": 2,
-	"resolution": [480,	480]
+	"resolution": [480,	480],
+	"lamp_control": 11,
+	"lamp_delay": 2
 }

@@ -256,7 +256,7 @@ def main(**kwargs):
             proc.stop()
         thread.join(timeout=5)
 
-    if params['lamp_control'] is not None and GPIO:
+    if params['lamp_control'] is not None:
         lamp.deinit()
 
 if __name__=='__main__':
