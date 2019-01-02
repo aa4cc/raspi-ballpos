@@ -59,15 +59,15 @@ def centers():
 
 @app.route('/restart')
 def restart():
-    app.processor.restart();
+    app.processor.restart()
     return 'OK <a href="/">Back</a>'
 
-@app.route('/lamp/on'):
+@app.route('/lamp/on')
 def lamp_on():
     lamp.on()
     return 'OK <a href="/">Back</a>'
 
-@app.route('/lamp/off'):
+@app.route('/lamp/off')
 def lamp_off():
     lamp.off()
     return 'OK <a href="/">Back</a>'

@@ -212,7 +212,7 @@ def main(**kwargs):
     if params['lamp_control'] is not None:
         lamp.pin = params['lamp_control']
         lamp.delay = params['lamp_delay']
-        lamp.init()
+        lamp.init(not params['lamp_manual'])
 
     if params['mask'] is not None:
         if os.path.isfile(params['mask']):

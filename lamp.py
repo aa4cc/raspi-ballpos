@@ -8,7 +8,7 @@ pin=None
 delay=0
 logic=True
 
-def init():
+def init(state=True):
     if not pin:
         logger.info("No lamp pin selected, no lamp control")
         return
@@ -18,10 +18,13 @@ def init():
         GPIO.setmode(GPIO.BCM)
         print("Starting lamp....     ", end="", flush=True)
         GPIO.setup(pin, GPIO.OUT)
-        GPIO.output(pin, True);
-        if delay:
-            # Let the light warm up
-            time.sleep(delay)
+        if state:
+            on()
+            if delay:
+                # Let the light warm up
+                time.sleep(delay)
+        else:
+            off();
         print("OK")
     except RuntimeError:
         logger.error("Error importing RPi.GPIO!  This is probably because you need superuser privileges. You can achieve this by using 'sudo' to run your script")
@@ -31,7 +34,7 @@ def init():
 def deinit():
     if not pin:
         return
-    GPIO.output(pin, False);
+    off()
     GPIO.cleanup()
 
 def on():
@@ -42,5 +45,5 @@ def on():
 def off():
     if not pin:
         raise RuntimeError("No lamp pin selected, no lamp control")
-    GPIO.output(pin, logic)
+    GPIO.output(pin, not logic)
 

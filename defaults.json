@@ -9,6 +9,7 @@
 "mask": null, 
 "lamp_control": null,
 "lamp_delay": 2,
+"lamp_manual": false,
 "hflip": false,
 "vflip": false,
 "annotate": null,
