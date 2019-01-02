@@ -54,7 +54,7 @@ URL endpoints:
 - ```/image/DETECTOR/TYPE``` - Returns lastest PNG image from detector DETECTOR ant TYPE choosen from ```image```, ```image_dwn```,```downsample```,```downsample_thrs```,```roi```,```roi_thrs```
 - ```/imagesc/DETECTOR/TYPE``` - same as ```/image/DETECTOR/TYPE``` but rendered by matplotlib imshow
 - ```/wb``` -page for white ballancing camera
-- ```/lamo/on```, ```/lamp/off``` - Turn lamp on and off respectively
+- ```/lamp/on```, ```/lamp/off``` - Turn lamp on and off respectively
 - ```/restart``` - restart image detection subsystem
 
 
