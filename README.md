@@ -4,7 +4,7 @@
 - Python3
 - OpenCV3
 Follow the instruction in [this guide](http://www.pyimagesearch.com/2016/04/18/install-guide-raspberry-pi-3-raspbian-jessie-opencv-3/) and install it for python3
-We recomend you not to use virtuakenvs on Raspberry Pi it this is the only one project
+We recomend you not to use virtualenvs on Raspberry Pi it this is the only one project
 
 ## Instalation
 1) Enable Raspberry Camera module by running ```sudo raspi-config```
