@@ -35,7 +35,7 @@ def repsonseImage(image):
 def add_header(r):
     """
     Add headers to both force latest IE rendering engine or Chrome Frame,
-    and also to cache the rendered page for 10 minutes.
+    and also not to cache the rendered page.
     """
     r.headers["Cache-Control"] = "public, max-age=0, no-cache, no-store, must-revalidate"
     r.headers["Pragma"] = "no-cache"

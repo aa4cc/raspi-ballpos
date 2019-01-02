@@ -189,10 +189,10 @@ def service(params, processor):
 @click.option('--verbose', '-v', count=True, default=False, help='Display time needed for processing of each frame and the measured positions.')
 @click.option('--preview', '-p', is_flag=True, default=False, help="Show preview on HDMI or display")
 @click.option('--video-record', is_flag=True, default=False, help="Record video")
-@click.option('--img-path', type=str, default='./img/', help='Path to store images, ideally ramdisk')
+@click.option('--img-path', type=str, default='./img/', help="Path to store images and videos ideally ramdisk")
 @click.option('--interactive', '-i', is_flag=True, help="Start interactive Python console, to get realtime access to PiCamera object for testing purposes")
 @click.option('--multicore', is_flag=True, help="Start detectors in different processes to speedup detection")
-@click.option('--web-interface/--no-web-interface', is_flag=True, default=True)
+@click.option('--web-interface/--no-web-interface', is_flag=True, default=True, help="Enable/Disable web interface on port 5001 (default: enable)")
 def main(**kwargs):
     params.load(kwargs["config_file"])
     params.update(kwargs)

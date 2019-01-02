@@ -14,37 +14,48 @@ We recomend you not to use virtuakenvs on Raspberry Pi it this is the only one p
 1) ```cp raspi-ballpos/config.json_sample config.json```
 1) Edit your configuration using your favourite editor
 1) ```cd raspi-ballpos```
-1) run ```posMeas.py -ivp``` and see the result
+1) run ```vision.py -ivp``` and see the result
 
 ## Usage
-Usage: posMeas.py [OPTIONS]
+Usage: vision.py [OPTIONS]
 
 Options:
 
 |Shortcut| Option | Type | Description|
 |--|--|--|--|
-| -n | \-\-num-frames | INTEGER |Total number of frames to process|
+| -c | \-\-config-file | FILE PATH | Path to onfig file (default: ../config.json)|
 | -f | \-\-frame-rate | INTEGER | Number of frames per second to process|
 | -e | \-\-exposition-time | INTEGER | Exposition time (shutter speed) in milliseconds.|
 | -v | \-\-verbose| flag | Display time needed for processing of each frame and the measured positions.|
-| -r | \-\-resolution | \<INTEGER INTEGER> | Image resolution|
 | -p | \-\-preview |flag | Show preview on HDMI or display|
 | | \-\-video-record | flag | Record video|
-| | \-\-img-path | TEXT| Path to store images ideally ramdisk|
-| -m | \-\-mask | PATH | Filename of mask to be applied on the captured images. The mask is assumed to be grayscale with values 255 for True and 0 for False.|
-| -l | \-\-lamp-control | INTEGER | Pin for control external lamp|
-| | \-\-lamp-delay | FLOAT |  Delay afrer lamp start to let the light warm up|
-| | \-\-hflip / \-\-no-hflip | flag | Horizontal flip of image|
-| | \-\-vflip / \-\-no-vflip |flag| Vertial flip of image|
-| -a | \-\-annotate | TEXT | Color of position in preview|
-| -o | \-\-overlay | TEXT | Enable overlay|
-| |\-\-overlay-alpha | INTEGER | Overlay alpha|
-| |\-\-iso | INTEGER | ISO for camera|
-| -i | \-\-image-server | flag | Activate Image server |
-| -w | \-\-white-balance | \<FLOAT FLOAT> | Camera white balance settings |
-| | \-\-interactive| flag | Start interactive Python console, to get realtime access to PiCamera object for testing purposes
-| |\-\-multicore| flag | Start detectors in different processes to speedup detection 
+| | \-\-img-path | TEXT| Path to store images and videos ideally ramdisk|
+| | \-\-interactive| flag | Start interactive Python console, to get realtime access to PiCamera object for testing purposes |
+| |\-\-multicore| flag | Start detectors in different processes to speedup detection |
+| |\-\-web-interface/--no-web-interface | flag | Enable/Disable web interface on port 5001 (default: enable) |
 | |\-\-help |flag | Show this message and exit.|
+
+## Web interface
+
+If web interface is enabled, it can be accessed by IP address or hostname on port 5001. All code for webinterface is based in [interface.py](https://github.com/aa4cc/raspi-ballpos/blob/master/interface.py) file.
+
+Example: ```HTTP://yourhostname.com:5001```
+
+URL endpoints:
+
+- ```/``` Summary page - Print all used settings and live images for all decoders
+- ```/detector/NAME``` - Print settings and live images for deetector named NAME
+- ```/centers``` - Returns JSON with positions of all objects
+- ```/config``` - Returns live config in JSON which can be used to replicates settings on another instance in config.json
+- ```/config``` - POST request loads new config form request into live config and restarts detection subsystem
+- ```/config/loadfile``` - POST request loads new config from local filesystem by given filename into live config and restarts detection subsystem
+- ```/detector/NAME/threshold/VALUE``` - Sets threshold of detector NAME to VALUE
+- ```/image``` - Returns lastest PNG color image
+- ```/image/DETECTOR/TYPE``` - Returns lastest PNG image from detector DETECTOR ant TYPE choosen from ```image```, ```image_dwn```,```downsample```,```downsample_thrs```,```roi```,```roi_thrs```
+- ```/imagesc/DETECTOR/TYPE``` - same as ```/image/DETECTOR/TYPE``` but rendered by matplotlib imshow
+- ```/wb``` -page for white ballancing camera
+- ```/imagesc/DETECTOR/TYPE``` - same as ```/image/DETECTOR/TYPE``` but rendered by matplotlib imshow
+- ```/restart``` - restart image detection subsystem
 
 
 > Written with [StackEdit](https://stackedit.io/).
