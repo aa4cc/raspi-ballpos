@@ -1,4 +1,4 @@
-function positions = getPositions(varargin)
+function positions = raspiGetPositions(host, varargin)
 %GETPOSITIONS Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -7,7 +7,8 @@ function positions = getPositions(varargin)
     addOptional(p,'index', []);
     parse(p,varargin{:});
 
-    positions = webread('http://147.32.86.182:5001/centers');
+    path = sprintf('http://%s:5001/centers', host)
+    positions = webread(path);
     if isnumeric(positions)
         positions = num2cell(positions', 1)';
     end

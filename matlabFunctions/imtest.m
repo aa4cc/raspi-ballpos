@@ -10,13 +10,13 @@ server = '147.32.86.182';
 obj = 'Blue'; % % Blue detector
 threshold = 120;
 
-dwnsample = RaspiImage(server, obj, 'downsample');
+dwnsample = raspiGetImage(server, obj, 'downsample');
 figure(1)
 imagesc(dwnsample)
 colorbar
 
 
-roi = RaspiImage(server, obj, 'roi');
+roi = raspiGetImage(server, obj, 'roi');
 figure(2)
 imagesc(roi)
 colorbar
@@ -24,7 +24,7 @@ colorbar
 %%
 % RGB image
 figure(3)
-rgb = RaspiImage(server);
+rgb = raspiGetImage(server);
 r = rgb(:,:,1);
 g = rgb(:,:,2);
 b = rgb(:,:,3);
@@ -39,7 +39,7 @@ imshow(rgb);
 
 %%
 
-rgb = RaspiImage(server, 'Green', 'image_dwn');
+rgb = raspiGetImage(server, 'Green', 'image_dwn');
 %rgb_dwn = rgb(1:16:end, 1:16:end,:);
 imshow(rgb);
 %%

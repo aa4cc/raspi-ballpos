@@ -1,4 +1,4 @@
-function varargout = RaspiImage(host, object, channel)
+function varargout = raspiGetImage(host, object, channel)
 %RASPIIMAGE Summary of this function goes here
 %   Detailed explanation goes here
     if nargin < 1

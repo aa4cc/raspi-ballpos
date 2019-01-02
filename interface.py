@@ -13,6 +13,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
+import lamp
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 app.thread = None
@@ -58,6 +60,16 @@ def centers():
 @app.route('/restart')
 def restart():
     app.processor.restart();
+    return 'OK <a href="/">Back</a>'
+
+@app.route('/lamp/on'):
+def lamp_on():
+    lamp.on()
+    return 'OK <a href="/">Back</a>'
+
+@app.route('/lamp/off'):
+def lamp_off():
+    lamp.off()
     return 'OK <a href="/">Back</a>'
 
 @app.route('/config')

@@ -29,12 +29,18 @@ def init():
         logger.error("Libratry RPi.GPIO not found, light controll not possible! You can install it using 'sudo pip3 install rpi.gpio' to install library")
 
 def deinit():
+    if not pin:
+        return
     GPIO.output(pin, False);
     GPIO.cleanup()
 
 def on():
+    if not pin:
+        raise RuntimeError("No lamp pin selected, no lamp control")
     GPIO.output(pin, logic)
 
 def off():
+    if not pin:
+        raise RuntimeError("No lamp pin selected, no lamp control")
     GPIO.output(pin, logic)
 
