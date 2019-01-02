@@ -4,7 +4,7 @@
 - Python3
 - OpenCV3
 Follow the instruction in [this guide](http://www.pyimagesearch.com/2016/04/18/install-guide-raspberry-pi-3-raspbian-jessie-opencv-3/) and install it for python3
-We recomend you not to use virtualenvs on Raspberry Pi it this is the only one project
+We recomend you not to use virtuakenvs on Raspberry Pi it this is the only one project
 
 ## Instalation
 1) Enable Raspberry Camera module by running ```sudo raspi-config```
@@ -15,6 +15,9 @@ We recomend you not to use virtualenvs on Raspberry Pi it this is the only one p
 1) Edit your configuration using your favourite editor
 1) ```cd raspi-ballpos```
 1) run ```vision.py -ivp``` and see the result
+1) copy ```vision.service``` into ```/etc/systemd/system/```
+1) fix path to ```vision.py``` in ```/etc/systemd/system/vision.service``` and optionally flags for starting
+1) use ```sudo systemctl ACTION vision``` with actions like ```start```, ```stop```, ```enable```, ```disable``` to control the service
 
 ## Usage
 Usage: vision.py [OPTIONS]
@@ -54,7 +57,7 @@ URL endpoints:
 - ```/image/DETECTOR/TYPE``` - Returns lastest PNG image from detector DETECTOR ant TYPE choosen from ```image```, ```image_dwn```,```downsample```,```downsample_thrs```,```roi```,```roi_thrs```
 - ```/imagesc/DETECTOR/TYPE``` - same as ```/image/DETECTOR/TYPE``` but rendered by matplotlib imshow
 - ```/wb``` -page for white ballancing camera
-- ```/lamp/on```, ```/lamp/off``` - Turn lamp on and off respectively
+- ```/lamo/on```, ```/lamp/off``` - Turn lamp on and off respectively
 - ```/restart``` - restart image detection subsystem
 
 
