@@ -27,7 +27,6 @@ Options:
 |Shortcut| Option | Type | Description|
 |--|--|--|--|
 | -c | \-\-config-file | FILE PATH | Path to onfig file (default: ../config.json)|
-| -f | \-\-frame-rate | INTEGER | Number of frames per second to process|
 | -e | \-\-exposition-time | INTEGER | Exposition time (shutter speed) in milliseconds.|
 | -v | \-\-verbose| flag | Display time needed for processing of each frame and the measured positions.|
 | -p | \-\-preview |flag | Show preview on HDMI or display|

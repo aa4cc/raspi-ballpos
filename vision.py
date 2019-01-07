@@ -185,7 +185,6 @@ def service(params, processor):
 
 @click.command()
 @click.option('--config-file', '-c', default="../config.json", type=click.Path(exists=True), help="Path to config file")
-@click.option('--frame-rate', '-f', default=10, help='Number of frames per second to process')
 @click.option('--verbose', '-v', count=True, default=False, help='Display time needed for processing of each frame and the measured positions.')
 @click.option('--preview', '-p', is_flag=True, default=False, help="Show preview on HDMI or display")
 @click.option('--video-record', is_flag=True, default=False, help="Record video")

@@ -1,11 +1,7 @@
 {
 "frame_rate": 50,
 "exposition_time": 10,
-"verbose": false,
 "resolution" : [640,480],
-"preview": false,
-"video_record": false,
-"img_path": "./img/",
 "mask": null, 
 "lamp_control": null,
 "lamp_delay": 2,
@@ -18,8 +14,6 @@
 "iso": 200,
 "image_server": false,
 "white_balance": [null, null],
-"interactive": false,
 "multicore": false,
 "screen_resolution": [null, null],
-"web_interface": true
 }
