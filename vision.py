@@ -34,7 +34,7 @@ def get_sreen_resolution():
     try:
         m = get_monitors()[0]
         return m.width, m.height
-    except NotImplementedError:
+    except (NotImplementedError, IndexError):
         if not all(params["screen_resolution"]):
             raise NotImplementedError("Calculations for overlay not supported without X server, or screen resolution specified in config")
         return params['screen_resolution']

@@ -10,7 +10,7 @@ We recomend you not to use virtuakenvs on Raspberry Pi it this is the only one p
 1) Enable Raspberry Camera module by running ```sudo raspi-config```
 1) Install required Python modules by running ```sudo pip3 install picamera click flask matplotlib profilehooks screeninfo imutils RPi.GPIO```
 1) git clone https://github.com/aa4cc/raspi-ballpos.git
-1) Compile _sharemem_ module by running ```sudo ./sharemem/install```
+1) Compile _sharemem_ module by running ```cd sharemem; ./install```
 1) ```cp raspi-ballpos/config.json_sample config.json```
 1) Edit your configuration using your favourite editor (Do not forget to specify screeb resolution, otherwise the found object position will not be correctly displayed)
 1) ```cd raspi-ballpos```
