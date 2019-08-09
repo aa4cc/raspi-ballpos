@@ -3,21 +3,25 @@
 ## Requirements
 - Python3
 - OpenCV3
-Follow the instruction in [this guide](http://www.pyimagesearch.com/2016/04/18/install-guide-raspberry-pi-3-raspbian-jessie-opencv-3/) and install it for python3
-We recomend you not to use virtuakenvs on Raspberry Pi it this is the only one project
+Follow the instructions in [this guide](http://www.pyimagesearch.com/2016/04/18/install-guide-raspberry-pi-3-raspbian-jessie-opencv-3/) to install OpenCV3 for python3.
+We recommend not using `virtualenvs` on Raspberry Pi if this is the only project you'll be running on it (it is not necessary).
+If your compilation fails, you might need to disable pre-compiled headers by adding the `-DENABLE_PRECOMPILED_HEADERS=OFF` flag when running cmake in the guide above.
 
-## Instalation
-1) Enable Raspberry Camera module by running ```sudo raspi-config```
-1) Install required Python modules by running ```sudo pip3 install picamera click flask matplotlib profilehooks screeninfo imutils RPi.GPIO```
-1) git clone https://github.com/aa4cc/raspi-ballpos.git
-1) Compile _sharemem_ module by running ```cd sharemem; ./install```
-1) ```cp raspi-ballpos/config.json_sample config.json```
-1) Edit your configuration using your favourite editor (Do not forget to specify screeb resolution, otherwise the found object position will not be correctly displayed)
-1) ```cd raspi-ballpos```
-1) run ```vision.py -ivp``` and see the result
-1) copy ```vision.service``` into ```/etc/systemd/system/```
-1) fix path to ```vision.py``` in ```/etc/systemd/system/vision.service``` and optionally flags for starting
-1) use ```sudo systemctl ACTION vision``` with actions like ```start```, ```stop```, ```enable```, ```disable``` to control the service
+## Installation
+1) Enable Raspberry Camera module by running ```sudo raspi-config``` in case you haven't already done it.
+1) Install the required Python modules by running ```sudo pip3 install picamera click flask matplotlib profilehooks screeninfo imutils RPi.GPIO```
+1) Clone this repository by ```git clone https://github.com/aa4cc/raspi-ballpos.git```
+1) Compile _sharemem_ module by running ```cd raspi-ballpos/sharemem; ./install```
+1) Go back by ```cd ../..```
+1) Run ```cp raspi-ballpos/config.json_sample config.json```
+1) Edit your configuration using your favourite editor (do not forget to specify screen resolution, otherwise the detected object position will not be displayed correctly).
+1) Run ```cd raspi-ballpos```
+1) Run ```python3 vision.py -ivp``` and see the result.
+
+### Automatic startup
+1) In order to start the process automatically upon booting, copy ```vision.service``` into ```/etc/systemd/system/``` (run ```sudo cp vision.service /etc/systemd/system/vision.service```).
+1) Open the file (```sudo nano /etc/systemd/system/vision.service```) and change *ExecStart* and *WorkingDirectory* paths to ```vision.py``` and ```raspi-ballpos``` respectively and optionally set flags for starting.
+1) Use ```sudo systemctl ACTION vision``` with actions such as ```start```, ```stop```, ```enable```, ```disable``` to control the service.
 
 ## Usage
 Usage: vision.py [OPTIONS]
@@ -52,12 +56,9 @@ URL endpoints:
 - ```/config``` - POST request loads new config form request into live config and restarts detection subsystem
 - ```/config/loadfile``` - POST request loads new config from local filesystem by given filename into live config and restarts detection subsystem
 - ```/detector/NAME/threshold/VALUE``` - Sets threshold of detector NAME to VALUE
-- ```/image``` - Returns lastest PNG color image
-- ```/image/DETECTOR/TYPE``` - Returns lastest PNG image from detector DETECTOR ant TYPE choosen from ```image```, ```image_dwn```,```downsample```,```downsample_thrs```,```roi```,```roi_thrs```
-- ```/imagesc/DETECTOR/TYPE``` - same as ```/image/DETECTOR/TYPE``` but rendered by matplotlib imshow
-- ```/wb``` -page for white ballancing camera
+- ```/image``` - Returns the latest PNG color image
+- ```/image/DETECTOR/TYPE``` - Returns the latest PNG image from detector DETECTOR and TYPE chosen from ```image```, ```image_dwn```,```downsample```,```downsample_thrs```,```roi```,```roi_thrs```
+- ```/imagesc/DETECTOR/TYPE``` - Same as ```/image/DETECTOR/TYPE``` but rendered by matplotlib imshow
+- ```/wb``` - Page for white ballancing camera
 - ```/lamp/on```, ```/lamp/off``` - Turn lamp on and off respectively
-- ```/restart``` - restart image detection subsystem
-
-
-> Written with [StackEdit](https://stackedit.io/).
+- ```/restart``` - Restart image detection subsystem
