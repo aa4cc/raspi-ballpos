@@ -16,12 +16,17 @@ import numpy as np
 import lamp
 
 app = Flask(__name__)
+app.processor = None
 app.config['SECRET_KEY'] = 'secret!'
 app.thread = None
 
 plot_lock = Lock()
 
 def getImage(object=None, type=None):
+    if app.processor is None:
+        print("App not ready yet")
+        return None
+
     if object is None or object == "processor":
         object = app.processor
     else:
@@ -47,6 +52,9 @@ def add_header(r):
 @app.route('/')
 @app.route('/detector/<detector>')
 def index(detector=None):
+    if app.processor is None:
+        print("App not ready yet, please retry")
+        return 'App not ready yet, please <a href="./">retry</a>'
     if detector is None:
         detectors = app.processor.detectors
     else:
