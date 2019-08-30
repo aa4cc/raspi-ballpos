@@ -34,6 +34,7 @@ Options:
 | -e | \-\-exposition-time | INTEGER | Exposition time (shutter speed) in milliseconds.|
 | -v | \-\-verbose| flag | Display time needed for processing of each frame and the measured positions.|
 | -p | \-\-preview |flag | Show preview on HDMI or display|
+| -l | \-\-load-old-color-settings | Loads old color settings, if using MultiColorDetector
 | | \-\-video-record | flag | Record video|
 | | \-\-img-path | TEXT| Path to store images and videos ideally ramdisk|
 | | \-\-interactive| flag | Start interactive Python console, to get realtime access to PiCamera object for testing purposes |
@@ -62,3 +63,4 @@ URL endpoints:
 - ```/wb``` - Page for white ballancing camera
 - ```/lamp/on```, ```/lamp/off``` - Turn lamp on and off respectively
 - ```/restart``` - Restart image detection subsystem
+- ```/ball_colors``` - UI for live color settings, only works with MultiColorDetector. Example of how to properly configure such a detector can be found in `config_multi.json`. Use GET option `i=#` (i.e. URL `/ball_colors?i=100`) to get a custom number of frames from which to calculate mean and standard deviation. 

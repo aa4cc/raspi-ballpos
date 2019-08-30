@@ -119,3 +119,9 @@ config.py
 *.png
 *.elf
 *_ert_rtw
+
+# compiled files
+*.so
+
+# editor files
+.vscode/*
