@@ -1,14 +1,13 @@
 {
 	"_annotate": "black",
-	"screen_resolution": [800,480],
+	"screen_resolution": [800, 480],
 	"white_balance": [1.05, 1.95],
-	"detectors": [
-		{
+	"detectors": [{
 			"threshold": 18,
 			"tracking_window": 80,
 			"downsample": 8,
-			"ball_size": [0,150],
-			"color_coefs": [-0.5,-0.5,1],
+			"ball_size": [0, 150],
+			"color_coefs": [-0.5, -0.5, 1],
 			"type": "detector.BallDetector",
 			"name": "Blue"
 		},
@@ -16,8 +15,8 @@
 			"threshold": 110,
 			"tracking_window": 64,
 			"downsample": 8,
-			"ball_size": [0,150],
-			"color_coefs": [1,-0.5,-0.5],
+			"ball_size": [0, 150],
+			"color_coefs": [1, -0.5, -0.5],
 			"type": "detector.BallDetector",
 			"name": "Red"
 		},
@@ -25,10 +24,53 @@
 			"threshold": 15,
 			"tracking_window": 64,
 			"downsample": 8,
-			"ball_size": [0,15000],
-			"color_coefs": [-0.65,1,-0.65],
+			"ball_size": [0, 150],
+			"color_coefs": [-0.65, 1, -0.65],
 			"type": "detector.BallDetector",
 			"name": "Green"
+		},
+		{
+			"type": "detector.MultiColorDetector",
+			"name": "RGBYPO",
+			"ball_colors": [{
+				"h_mid": 350,
+				"h_tolerance": 10,
+				"sat_min": 50,
+				"val_min": 30
+			},
+			{
+				"h_mid": 185,
+				"h_tolerance": 10,
+				"sat_min": 50,
+				"val_min": 30
+			},
+			{
+				"h_mid": 130,
+				"h_tolerance": 10,
+				"sat_min": 50,
+				"val_min": 30
+			},
+			{
+				"h_mid": 335,
+				"h_tolerance": 10,
+				"sat_min": 50,
+				"val_min": 30
+			},
+			{
+				"h_mid": 55,
+				"h_tolerance": 10,
+				"sat_min": 50,
+				"val_min": 30
+			},
+			{
+				"h_mid": 8,
+				"h_tolerance": 10,
+				"sat_min": 50,
+				"val_min": 30
+			}],
+			"tracking_window": 64,
+			"downsample": 8,
+			"ball_size": [0, 150]
 		}
 	],
 	"exposition_time": 10,
@@ -38,7 +80,7 @@
 	"img_path": "/home/pi/img/",
 	"hflip": true,
 	"overlay": 2,
-	"resolution": [480,	480],
+	"resolution": [480, 480],
 	"lamp_control": 11,
 	"lamp_delay": 2
 }

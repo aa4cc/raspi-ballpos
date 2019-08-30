@@ -9,12 +9,13 @@ import multiprocessing
 import threading
 from sharemem import SharedMemory
 from detector import Detector
+import itertools
 import math
 
 class Processor(io.BytesIO):
     def __init__(self, detectors=None, callback=None, mask=None):
         super().__init__()
-        self.frame_number = 0;
+        self.frame_number = 0
         self.callback = callback
         self.detectors = []
         self.image = None
@@ -45,12 +46,16 @@ class Processor(io.BytesIO):
         else:
             print('No detectors active')
 
+    def numberOfObjects(self):
+        return sum(d.numberOfObjects() for d in self.detectors)
+
 
     def getImage(self, name):
         im = self.image
         if im is None:
             return None
-
+        if name=="im_thrs":
+            return self.im_thrs
         if name == "centers":
             im = im.copy()
             for detector in self.detectors:
@@ -119,7 +124,11 @@ class SingleCore(Processor):
 
 
     def processImage(self, image):
-        return [detector.processImage(self.frame_number, image) for detector in self.detectors]
+        #print([detector.processImage(self.frame_number, image) for detector in self.detectors])
+        detector_results = [detector.processImage(self.frame_number, image) for detector in self.detectors]
+        # merge results
+        centers = list(itertools.chain.from_iterable(detector_results))
+        return centers
 
 class MultiCore(Processor):
     """docstring for MultiCoreDetector"""
@@ -158,7 +167,7 @@ class MultiCore(Processor):
 
             print('Frame: {:5}, center [{}], elapsed time: {:.1f}ms'.format(self.frame_number, c, elapsed_time*1000))
 
-        self.frame_number += 1;
+        self.frame_number += 1
 
         if self.stop_event.is_set():
             raise StopIteration("Number of frames done")
@@ -166,7 +175,12 @@ class MultiCore(Processor):
         self.sm.write(image)
         with self.start_cond:
             self.start_cond.notify_all()
-        return [worker.get_result(timeout=0.5) for worker in self.workers]
+
+
+        detector_results = [worker.get_result(timeout=0.5) for worker in self.workers]
+        # merge results
+        centers = list(itertools.chain.from_iterable(detector_results))
+        return centers
 
     class Worker(Process):
         """docstring for Worker"""
@@ -192,8 +206,8 @@ class MultiCore(Processor):
                             e1 = cv2.getTickCount()
                         data = np.fromstring(self.sm.read(lock=False), dtype=np.uint8)
                         image = np.resize(data,(params["resolution"][1], params["resolution"][0], 3))
-                        center = self.detector.processImage(-1, image)
-                        self.result_queue.put(center, timeout=0.5)
+                        centers = self.detector.processImage(-1, image)
+                        self.result_queue.put(centers, timeout=0.5)
                         if params["verbose"] > 1:
                             e2 = cv2.getTickCount()
                             elapsed_time = (e2 - e1)/ cv2.getTickFrequency()

@@ -73,14 +73,13 @@ def setup(camera, params, processor):
             scale = w/prev_w
 
             t = (offset[0],offset[1],w,h)
-            print(t)
 
             preview = camera.start_preview(fullscreen=False, window=t)
 
             if params["overlay"]:
                 overlays.init(
                     camera,
-                    len(processor.detectors),
+                    processor.numberOfObjects(),
                     offset=offset,
                     size=params["overlay"],
                     alpha=params["overlay_alpha"],
@@ -117,7 +116,7 @@ def run(params, processor):
         fps = None
         recording = False
         try:
-            shared_position = SharedPosition(len(params.detectors))
+            shared_position = SharedPosition(processor.numberOfObjects())
             setup(camera, params, processor)
             def position_callback(centers):
                 # Write the measured position to the shared memory
@@ -192,6 +191,7 @@ def service(params, processor):
 @click.option('--interactive', '-i', is_flag=True, help="Start interactive Python console, to get realtime access to PiCamera object for testing purposes")
 @click.option('--multicore', is_flag=True, help="Start detectors in different processes to speedup detection")
 @click.option('--web-interface/--no-web-interface', is_flag=True, default=True, help="Enable/Disable web interface on port 5001 (default: enable)")
+@click.option('--load-old-color-settings', '-l', is_flag=True, default=False, help="Instead of loading color settings from JSON, values from last run will be used (for MultiColorDetector)")
 def main(**kwargs):
     params.load(kwargs["config_file"])
     params.update(kwargs)
@@ -240,9 +240,12 @@ def main(**kwargs):
         import code
         import readline
         import rlcompleter
+        from pprint import pprint
         
         thread = threading.Thread(name="Camera thread", args=(params, proc), target=service)
         thread.start()
+
+        from interface import app
 
         vars = globals()
         vars.update(locals())

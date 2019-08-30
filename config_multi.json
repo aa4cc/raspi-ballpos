@@ -1,0 +1,67 @@
+{
+    "_annotate": "black",
+	"screen_resolution": [
+		800,
+		480
+	],
+	"white_balance": [
+		1.05,
+		1.95
+	],
+	"exposition_time": 10,
+	"vflip": true,
+	"overlay_alpha": 50,
+	"frame_rate": 50,
+	"hflip": true,
+	"overlay": 2,
+	"resolution": [
+		480,
+		480
+	],
+    "detectors":[
+        {
+            "type": "detector.MultiColorDetector",
+            "name": "RGBYPO",
+            "ball_colors": [{
+                "h_mid": 350,
+                "h_tolerance": 10,
+                "sat_min": 50,
+                "val_min": 30
+            },
+            {
+                "h_mid": 185,
+                "h_tolerance": 10,
+                "sat_min": 50,
+                "val_min": 30
+            },
+            {
+                "h_mid": 130,
+                "h_tolerance": 10,
+                "sat_min": 50,
+                "val_min": 30
+            },
+            {
+                "h_mid": 335,
+                "h_tolerance": 10,
+                "sat_min": 50,
+                "val_min": 30
+            },
+            {
+                "h_mid": 55,
+                "h_tolerance": 10,
+                "sat_min": 50,
+                "val_min": 30
+            },
+            {
+                "h_mid": 16,
+                "h_tolerance": 6,
+                "sat_min": 21,
+                "val_min": 56
+            }],
+            "tracking_window": 64,
+            "downsample": 8,
+            "ball_size": [0, 150]
+        }
+    ]
+    }
+    
