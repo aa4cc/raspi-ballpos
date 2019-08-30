@@ -1,0 +1,251 @@
+<html>
+<head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <link href="https://fonts.googleapis.com/css?family=Montserrat&display=swap" rel="stylesheet">
+  <style>
+    #not_saved_bar{
+      z-index: 2400;
+      position: fixed;
+      top: 0;
+      width: 100%;
+      height: 50;
+      margin: 0;
+    }
+    ul {
+      background-color:#77DD77;
+      /*display: none;*/
+      list-style-type: none;
+      overflow: hidden;
+      margin: 0;
+    }
+
+    li {
+      float: left;
+      font-family: 'Montserrat', sans-serif;
+    }
+
+    li span {
+      display: block;
+      color: white;
+      text-align: center;
+      padding: 14px 16px;
+    }
+
+    li a {
+      display: block;
+      color: white;
+      text-align: center;
+      padding: 14px 16px;
+      text-decoration: none;
+    }
+
+    li a:hover {
+      background-color: #461220;
+    }
+
+    body {
+      margin:0;
+    }
+
+    .button {
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    }
+
+    td, th {
+    white-space: nowrap;
+    overflow: hidden;
+    }
+  </style>
+
+  <!-- import all the libraries -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/jquery-ui.min.js"></script>
+  <link href="https://code.jquery.com/ui/1.10.4/themes/ui-lightness/jquery-ui.css" rel="stylesheet">
+  <script type="text/javascript" src="/static/colorpicker-master/jquery.colorpicker.js"></script>
+  <link href="/static/colorpicker-master/jquery.colorpicker.css" rel="stylesheet" type="text/css" />
+
+  <script>
+    // ignore the fake color changes on page load
+    var number_of_color_changes = 0;
+
+    // register color change, change the top bar and send data to server (not applying them yet!)
+    function send_color_settings(id_number) {
+      $("#colorpicker-" + id_number + "_value").show();
+      if (number_of_color_changes >= {{len(balls)}}) {
+        document.getElementById('infotext').innerHTML="Changes not saved!";
+        document.getElementById('not_saved_bar_inner').style.backgroundColor ="#B23A48";
+        document.getElementById('save_button').innerHTML="<a href='javascript:save_changes()'>Save</a>";
+      }
+      number_of_color_changes++;
+      $.get(
+        "/ball_colors/limits", {
+          formatted: $("#colorpicker-" + id_number + "_value").val(),
+          tolerance: $("#slider-" + id_number + "_value").val(),
+          index: id_number
+        },
+        function (data, status) {
+          $("#im_thrs-" + id_number).attr(
+            "src",
+            "/static/im_thrs-" + id_number + ".png?time=" + new Date().getTime()
+          );
+        }
+      );
+    }
+
+    // apply changes, reset top bar
+    function save_changes() {
+      document.getElementById('save_button').innerHTML="<a href='javascript:void(0)'>Saving</a>";
+      $.get("/ball_colors/set_colors", function (data) {
+        document.getElementById('infotext').innerHTML="All changes saved!";
+        document.getElementById('not_saved_bar_inner').style.backgroundColor="#77DD77";
+        document.getElementById('save_button').innerHTML="";
+      });
+    }
+
+    // gets pixel x,y at the point that was clicked and sends it to server
+    function set_pixel_color(event, element, index) {
+      var image_ratio = 480 / 320;
+      var random_offset_thats_there = 10;
+      var x = Math.round(
+        (event.pageX - element.offset().left) *
+        image_ratio
+      );
+      var y = Math.round(
+        (event.pageY - element.offset().top) *
+        image_ratio
+      );
+
+      // receives the RGB value of that pixel
+      $.getJSON("/ball_colors/color", {
+        x: x,
+        y: y
+      }, function (data) {
+        $("#colorpicker-" + index).colorpicker(
+          "setColor",
+          "rgb(" + data["r"] + "," + data["g"] + "," + data["b"] + ")"
+        );
+      });
+    }
+
+      function show_row(index){
+        $(".basic_info-"+index).css('display', 'none');
+        $(".colorpicker_info-"+index).css('display', 'table-cell');
+      }
+  </script>
+</head>
+<body>
+  <!-- top bar -->
+<div id="not_saved_bar">
+<ul id="not_saved_bar_inner">
+  <li><span id="infotext">Settings loaded succesfully!</span></li>
+  <li id="save_button" style="float:right"></li>
+</ul>
+</div>
+</br>
+</br>
+</br>
+
+<!-- the table itself -->
+<table class="fixed" style="text-align: center; table-layout:fixed">
+  <col width="350px" />
+  <col width="600px" />
+  <col width="350px" />
+
+  {% for ball in balls%}
+  <!-- what's shown on page load - buttons and stats -->
+ <tr id="row-{{loop.index0}}">
+    <td class="basic_info-{{loop.index0}}">
+          <button id="preview_button-{{loop.index0}}" class="button" style="background-color: {{ball.get_color_hexa()}}; font-family: 'Montserrat', sans-serif">Preview</button>
+    <script>
+    $(function(){
+      $("#preview_button-{{loop.index0}}").on("click", function (event) {
+        show_row({{loop.index0}});
+      });
+    });
+    </script>
+    </td>
+    <td class="basic_info-{{loop.index0}}">Found: {{found[loop.index0]}}/{{test_iterations}} ({{percentages[loop.index0]}}%), mean_x={{'%0.2f' % means[loop.index0][0]}} (std_x={{'%0.2f' % stds[loop.index0][0]}}); mean_y={{'%0.2f' % means[loop.index0][1]}} (std_y={{'%0.2f' % stds[loop.index0][1]}})</td>
+    
+    <!-- what's shown after clicking the respective button -->
+    <td class="colorpicker_info-{{loop.index0}}" style="display:none">
+      <img type="image" id="source_img-{{loop.index0}}" src="/static/image.png" width="320" style="cursor: crosshair" />
+      <script type="text/javascript">
+        $(function () {
+          $("#source_img-{{loop.index0}}").on("click", function (event) {
+            set_pixel_color(event, $("#source_img-{{loop.index0}}"), {{loop.index0}});
+          });
+        });
+      </script>
+    </td>
+    <td class="colorpicker_info-{{loop.index0}}" style="display:none">
+        <div id="preview-{{loop.index0}}">
+          <!-- the colorpicker itself and its settings -->
+          <span id="colorpicker-{{loop.index0}}" style="display: inline-block; vertical-align: top;"></span>
+          <script>
+            $(function () {
+              $("#colorpicker-{{loop.index0}}").colorpicker({
+                color: "{{color|safe}}",
+                parts: ["map", "hsv", "preview", "bar", "rgb", "hex"],
+                alpha: false,
+                colorFormat: "HSV(hf,sd,vd)"
+              });
+
+              $("#colorpicker-{{loop.index0}}").colorpicker(
+                "setColor",
+                "{{ball.get_color_for_colorpicker()}}"
+              );
+            });
+
+            $(function () {
+              cp = $("#colorpicker-{{loop.index0}}").colorpicker({
+                stop: function (event, color) {
+                  $("#colorpicker-{{loop.index0}}_value").val(color.formatted);
+                  send_color_settings({{loop.index0}});
+                }
+              });
+            });
+          </script>
+          <!-- hidden inputs for getting values of colorpicker and tolerance slider -->
+          <input type=hidden id="colorpicker-{{loop.index0}}_value"
+            value="{{ball.get_color_for_webpage_hidden_input()}}">
+        </div>
+        <div id="tolerance_slider-{{loop.index0}}" width="320"><input type=hidden id="slider-{{loop.index0}}_value"
+            value="{{int(ball.h_tolerance*360)}}"></div>
+        <script>
+          $(function () {
+            $("#tolerance_slider-{{loop.index0}}").slider({
+              value: {{int(ball.h_tolerance * 360)}},
+              min: 0,
+              max: 20,
+              stop: function (event, ui) {
+                $("#slider-{{loop.index0}}_value").val(ui.value);
+                send_color_settings({{loop.index0}});
+              }
+            });
+          });
+        </script>
+      </div>
+    </td>
+    <!-- thresholded image -->
+    <td class="colorpicker_info-{{loop.index0}}" style="display:none">
+      <img type="image" id="im_thrs-{{loop.index0}}" src="/static/im_thrs-{{loop.index0}}.png" width="320"
+        style="border:1px solid black" />
+      <script>
+        $(function () {
+          send_color_settings({{loop.index0}});
+        });
+      </script>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+</body>
+</html>
