@@ -30,16 +30,16 @@ Options:
 
 |Shortcut| Option | Type | Description|
 |--|--|--|--|
-| -c | \-\-config-file | FILE PATH | Path to onfig file (default: ../config.json)|
+| -c | \-\-config-file | FILE PATH | Path to config file (default: `../config.json`)|
 | -e | \-\-exposition-time | INTEGER | Exposition time (shutter speed) in milliseconds.|
 | -v | \-\-verbose| flag | Display time needed for processing of each frame and the measured positions.|
-| -p | \-\-preview |flag | Show preview on HDMI or display|
-| -l | \-\-load-old-color-settings | Loads old color settings, if using MultiColorDetector
-| | \-\-video-record | flag | Record video|
-| | \-\-img-path | TEXT| Path to store images and videos ideally ramdisk|
-| | \-\-interactive| flag | Start interactive Python console, to get realtime access to PiCamera object for testing purposes |
-| |\-\-multicore| flag | Start detectors in different processes to speedup detection |
-| |\-\-web-interface/--no-web-interface | flag | Enable/Disable web interface on port 5001 (default: enable) |
+| -p | \-\-preview |flag | Show preview on HDMI or display.|
+| -l | \-\-load-old-color-settings | flag | Loads old color settings if using MultiColorDetector.|
+| | \-\-video-record | flag | Record video.|
+| | \-\-img-path | TEXT| Path to store images and videos ideally ramdisk.|
+| | \-\-interactive| flag | Start interactive Python console, to get realtime access to PiCamera object for testing purposes.|
+| |\-\-multicore| flag | Start detectors in different processes to speed-up detection.|
+| |\-\-web-interface/--no-web-interface | flag | Enable/Disable web interface on port 5001 (default: enable).|
 | |\-\-help |flag | Show this message and exit.|
 
 ## Web interface
@@ -50,17 +50,17 @@ Example: ```HTTP://yourhostname.com:5001```
 
 URL endpoints:
 
-- ```/``` Summary page - Print all used settings and live images for all decoders
-- ```/detector/NAME``` - Print settings and live images for deetector named NAME
-- ```/centers``` - Returns JSON with positions of all objects
-- ```/config``` - Returns live config in JSON which can be used to replicates settings on another instance in config.json
-- ```/config``` - POST request loads new config form request into live config and restarts detection subsystem
-- ```/config/loadfile``` - POST request loads new config from local filesystem by given filename into live config and restarts detection subsystem
-- ```/detector/NAME/threshold/VALUE``` - Sets threshold of detector NAME to VALUE
-- ```/image``` - Returns the latest PNG color image
-- ```/image/DETECTOR/TYPE``` - Returns the latest PNG image from detector DETECTOR and TYPE chosen from ```image```, ```image_dwn```,```downsample```,```downsample_thrs```,```roi```,```roi_thrs```
-- ```/imagesc/DETECTOR/TYPE``` - Same as ```/image/DETECTOR/TYPE``` but rendered by matplotlib imshow
-- ```/wb``` - Page for white ballancing camera
-- ```/lamp/on```, ```/lamp/off``` - Turn lamp on and off respectively
-- ```/restart``` - Restart image detection subsystem
-- ```/ball_colors``` - UI for live color settings, only works with MultiColorDetector. Example of how to properly configure such a detector can be found in `config_multi.json`. Use GET option `i=#` (i.e. URL `/ball_colors?i=100`) to get a custom number of frames from which to calculate mean and standard deviation. 
+- ```/``` Summary page - Print all used settings and live images for all decoders (if not using MultiColorDetector).
+- ```/detector/NAME``` - Print settings and live images for detector called NAME.
+- ```/centers``` - Returns JSON with positions of all objects.
+- ```/config``` - Returns live config in JSON which can be used to replicates settings on another instance in config.json (for changes to MultiColorDetector, see `/ball_colors`).
+- ```/config``` - POST request loads new config form request into live config and restarts detection subsystem.
+- ```/config/loadfile``` - POST request loads new config from local filesystem by given filename into live config and restarts detection subsystem.
+- ```/detector/NAME/threshold/VALUE``` - Sets threshold of detector NAME to VALUE (for changes to MultiColorDetector, see `/ball_colors`).
+- ```/image``` - Returns the latest PNG color image.
+- ```/image/DETECTOR/TYPE``` - Returns the latest PNG image from detector DETECTOR and TYPE chosen from ```image```, ```image_dwn```,```downsample```,```downsample_thrs```,```roi```,```roi_thrs``` or ```im_thrs``` for MultiColorDetector.
+- ```/imagesc/DETECTOR/TYPE``` - Same as ```/image/DETECTOR/TYPE``` but rendered by matplotlib imshow.
+- ```/wb``` - Page for white balancing camera.
+- ```/lamp/on```, ```/lamp/off``` - Turn lamp on and off respectively (if available).
+- ```/restart``` - Restart the image detection subsystem.
+- ```/ball_colors``` - UI for live color settings, only works with MultiColorDetector. Example of how to properly configure such a detector can be found in `config_multi.json`. Use GET option `i=#` (i.e. URL `/ball_colors?i=100`) to get a custom number of frames from which to calculate mean and standard deviation (default 5).
