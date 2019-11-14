@@ -52,7 +52,7 @@ def getImage(object=None, type=None):
     return object.getImage(type)
 
 
-def repsonseImage(image):
+def responseImage(image):
     response = make_response(image)
     response.headers['Content-Type'] = 'image/png'
     return response
@@ -155,7 +155,7 @@ def image(object=None, type=None):
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     _, buffer = cv2.imencode('.png', image)
-    return repsonseImage(buffer.tobytes())
+    return responseImage(buffer.tobytes())
 
 
 @app.route('/imagesc')
@@ -174,7 +174,7 @@ def imagesc(object=None, type=None):
             plt.colorbar()
         plt.savefig(buffer)
         plt.close()
-    return repsonseImage(buffer.getvalue())
+    return responseImage(buffer.getvalue())
 
 
 @app.route('/wb')
@@ -198,6 +198,7 @@ def wb_value():
 @app.route('/wb/value/<int:a>,<float:b>')
 @app.route('/wb/value/<float:a>,<float:b>')
 def wb_set(a, b):
+    print(a,b)
     app.camera.awb_gains = (a, b)
     return "OK"
 
@@ -212,7 +213,7 @@ def image_wb():
     pt2 = tuple(int(v/2+50) for v in app.params["resolution"])
     image = cv2.rectangle(image, pt1, pt2, (255, 0, 0), 5)
     _, buffer = cv2.imencode('.png', cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    return repsonseImage(buffer.tobytes())
+    return responseImage(buffer.tobytes())
 
 
 def get_multidetector():
@@ -232,7 +233,7 @@ def ball_colors():
     # check if everything has been loaded
     im = getImage()
     if im is None:
-        return "Program properly started yet - try it again in a few seconds. :-)"
+        return "Program hasn't properly started yet - try it again in a few seconds. :-)"
 
     MultiDetector = get_multidetector()
     if not isinstance(MultiDetector, Detector):
@@ -386,6 +387,120 @@ def set_colors():
     MultiDetector.init_table()
     MultiDetector.save_color_settings()
     return "OK"
+
+def rotate(origin, point, angle):
+    """
+    Rotate a point counterclockwise by a given angle around a given origin.
+
+    The angle should be given in radians.
+    """
+    ox, oy = origin
+    px, py = point
+
+    qx = ox + math.cos(angle) * (px - ox) - math.sin(angle) * (py - oy)
+    qy = oy + math.sin(angle) * (px - ox) + math.cos(angle) * (py - oy)
+
+    return qx, qy
+
+def trapez(y,y0,w):
+    return np.clip(np.minimum(y+1+w/2-y0, -y+1+w/2+y0),0,1)
+
+def weighted_line(r0, c0, r1, c1, w=2, rmin=0, rmax=np.inf):
+    # The algorithm below works fine if c1 >= c0 and c1-c0 >= abs(r1-r0).
+    # If either of these cases are violated, do some switches.
+    r0=int(r0)
+    c0=int(c0)
+    r1=int(r1)
+    c1=int(c1)
+    if abs(c1-c0) < abs(r1-r0):
+        # Switch x and y, and switch again when returning.
+        xx, yy, val = weighted_line(c0, r0, c1, r1, w, rmin=rmin, rmax=rmax)
+        return (yy, xx, val)
+
+    # At this point we know that the distance in columns (x) is greater
+    # than that in rows (y). Possibly one more switch if c0 > c1.
+    if c0 > c1:
+        return weighted_line(r1, c1, r0, c0, w, rmin=rmin, rmax=rmax)
+
+    # The following is now always < 1 in abs
+    slope = (r1-r0) / (c1-c0)
+
+    # Adjust weight by the slope
+    w *= np.sqrt(1+np.abs(slope)) / 2
+
+    # We write y as a function of x, because the slope is always <= 1
+    # (in absolute value)
+    x = np.arange(c0, c1+1, dtype=float)
+    y = x * slope + (c1*r0-c0*r1) / (c1-c0)
+
+    # Now instead of 2 values for y, we have 2*np.ceil(w/2).
+    # All values are 1 except the upmost and bottommost.
+    thickness = np.ceil(w/2)
+    yy = (np.floor(y).reshape(-1,1) + np.arange(-thickness-1,thickness+2).reshape(1,-1))
+    xx = np.repeat(x, yy.shape[1])
+    vals = trapez(yy, y.reshape(-1,1), w).flatten()
+
+    yy = yy.flatten()
+
+    # Exclude useless parts and those outside of the interval
+    # to avoid parts outside of the picture
+    mask = np.logical_and.reduce((yy >= rmin, yy < rmax, vals > 0))
+
+    return (yy[mask].astype(int), xx[mask].astype(int), vals[mask])
+
+@app.route('/triangle')
+def draw_triangle():
+    # check if everything has been loaded
+    im = getImage()
+    print((im).shape)
+    if im is None:
+        return "Program hasn't properly started yet - try it again in a few seconds. :-)"
+    print(app.processor.centers)
+    centers=app.processor.centers
+    yellow=centers[4]
+    blue=centers[1]
+    red=centers[5]
+
+
+    # paint centers
+    for center in centers:
+        if center is not None:
+            for i in range(-16,16):
+                if center[0]+i<0 or center[0]+i>im.shape[0] or center[1]+i<0 or center[1]+i>im.shape[1]:
+                    continue
+                im[int(center[1])+i,int(center[0]),:]=0xff
+                im[int(center[1]),int(center[0])+i,:]=0xff
+
+    if blue is not None and red is not None:
+        theta=np.arctan2(blue[1]-red[1],blue[0]-red[0])+np.pi/4
+        center_of_mass=[(blue[0]+red[0]+yellow[0])/3,(blue[1]+red[1]+yellow[1])/3]
+        print(center_of_mass)
+        for i in range(-4,4+1):
+            im[int(center_of_mass[1])+i,int(center_of_mass[0]),1]=0xff
+            im[int(center_of_mass[1]),int(center_of_mass[0])+i,1]=0xff
+        
+        # paint the triangle
+        side_length_pixel=122
+
+        y_corner=[center_of_mass[0]-side_length_pixel//3,center_of_mass[1]-side_length_pixel//3]
+        r_corner=[y_corner[0]+side_length_pixel,y_corner[1]]
+        b_corner=[y_corner[0],y_corner[1]+side_length_pixel]
+
+        y_corner=rotate(center_of_mass,y_corner,theta)
+        r_corner=rotate(center_of_mass,r_corner,theta)
+        b_corner=rotate(center_of_mass,b_corner,theta)
+
+        lines=[weighted_line(y_corner[0],y_corner[1],r_corner[0],r_corner[1]),
+            weighted_line(b_corner[0],b_corner[1],r_corner[0],r_corner[1]),
+            weighted_line(y_corner[0],y_corner[1],b_corner[0],b_corner[1])]
+        for line in lines:
+            for i in range(len(line[0])):
+                im[line[1][i],line[0][i],:]=int(255*line[2][i])
+
+    image = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    _, buffer = cv2.imencode('.png', image)
+    return responseImage(buffer.tobytes())
+
 
 
 def start():
