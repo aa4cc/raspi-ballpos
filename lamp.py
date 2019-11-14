@@ -24,7 +24,7 @@ def init(state=True):
                 # Let the light warm up
                 time.sleep(delay)
         else:
-            off();
+            off()
         print("OK")
     except RuntimeError:
         logger.error("Error importing RPi.GPIO!  This is probably because you need superuser privileges. You can achieve this by using 'sudo' to run your script")

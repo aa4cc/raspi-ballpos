@@ -443,7 +443,8 @@ class MultiColorDetector(Detector):
         self.debug = kwargs.get("debug", 0)
         self.images = {"mask": self.mask}
         self.compute_orientation = kwargs.get("compute_orientation", False)
-        self.orientation_offset = kwargs.get("orientation_offset", 0)
+        self.orientation_offset = kwargs.get("orientation_offset", -5.47)
+
 
         # MultiColor Specifics
         if params['load_old_color_settings']:

@@ -5,7 +5,7 @@ Description=PosMeas service
 Type=simple
 Environment="DISPLAY=:0.0"
 User=pi
-ExecStart=/usr/bin/python3 /home/pi/MagmanRaspberry/raspi-ballpos/vision.py -pl -c config_multi.json
+ExecStart=/usr/bin/python3 /home/pi/MagmanRaspberry/raspi-ballpos/vision.py -p
 WorkingDirectory=/home/pi/MagmanRaspberry/raspi-ballpos
 StandardOutput=syslog
 StandardError=syslog

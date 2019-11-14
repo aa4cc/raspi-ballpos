@@ -32,42 +32,14 @@
 		{
 			"type": "detector.MultiColorDetector",
 			"name": "RGBYPO",
-			"ball_colors": [{
-				"h_mid": 350,
-				"h_tolerance": 10,
-				"sat_min": 50,
-				"val_min": 30
-			},
-			{
-				"h_mid": 185,
-				"h_tolerance": 10,
-				"sat_min": 50,
-				"val_min": 30
-			},
-			{
-				"h_mid": 130,
-				"h_tolerance": 10,
-				"sat_min": 50,
-				"val_min": 30
-			},
-			{
-				"h_mid": 335,
-				"h_tolerance": 10,
-				"sat_min": 50,
-				"val_min": 30
-			},
-			{
-				"h_mid": 55,
-				"h_tolerance": 10,
-				"sat_min": 50,
-				"val_min": 30
-			},
-			{
-				"h_mid": 8,
-				"h_tolerance": 10,
-				"sat_min": 50,
-				"val_min": 30
-			}],
+			"ball_colors": [
+				{"h_mid": 350, "h_tolerance": 10, "sat_min": 50, "val_min": 30},
+				{"h_mid": 185, "h_tolerance": 10, "sat_min": 50, "val_min": 30},
+				{"h_mid": 130, "h_tolerance": 10, "sat_min": 50, "val_min": 30},
+				{"h_mid": 335, "h_tolerance": 10, "sat_min": 50, "val_min": 30},
+				{"h_mid":  55, "h_tolerance": 10, "sat_min": 50, "val_min": 30},
+				{"h_mid":   8, "h_tolerance": 10, "sat_min": 50, "val_min": 30}
+				],
 			"tracking_window": 64,
 			"downsample": 8,
 			"ball_size": [0, 150]

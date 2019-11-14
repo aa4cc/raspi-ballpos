@@ -5,8 +5,8 @@
 		480
 	],
 	"white_balance": [
-		1.05,
-		1.95
+		1.5,
+		1.35
 	],
 	"exposition_time": 10,
 	"vflip": true,

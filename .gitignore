@@ -120,8 +120,18 @@ config.py
 *.elf
 *_ert_rtw
 
-# compiled files
-*.so
+# Created by https://www.gitignore.io/api/visualstudiocode
+# Edit at https://www.gitignore.io/?templates=visualstudiocode
 
-# editor files
+### VisualStudioCode ###
 .vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+.history
+
+# End of https://www.gitignore.io/api/visualstudiocode

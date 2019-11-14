@@ -120,7 +120,7 @@ class SingleCore(Processor):
 
             print('Frame: {:5}, center [{}], elapsed time: {:.1f}ms'.format(self.frame_number, c, elapsed_time*1000))
 
-        self.frame_number += 1;
+        self.frame_number += 1
 
 
     def processImage(self, image):
