@@ -4,9 +4,10 @@ import RPi.GPIO as GPIO
 
 logger = logging.getLogger(__name__)
 
-pin=None
-delay=0
-logic=True
+pin = None
+delay = 0
+logic = True
+
 
 def init(state=True):
     if not pin:
@@ -16,7 +17,7 @@ def init(state=True):
     try:
         import RPi.GPIO as GPIO
         GPIO.setmode(GPIO.BCM)
-        print("Starting lamp....     ", end="", flush=True)
+        #print("Starting lamp....     ", end="", flush=True)
         GPIO.setup(pin, GPIO.OUT)
         if state:
             on()
@@ -27,9 +28,12 @@ def init(state=True):
             off()
         print("OK")
     except RuntimeError:
-        logger.error("Error importing RPi.GPIO!  This is probably because you need superuser privileges. You can achieve this by using 'sudo' to run your script")
+        logger.error(
+            "Error importing RPi.GPIO!  This is probably because you need superuser privileges. You can achieve this by using 'sudo' to run your script")
     except ImportError:
-        logger.error("Libratry RPi.GPIO not found, light controll not possible! You can install it using 'sudo pip3 install rpi.gpio' to install library")
+        logger.error(
+            "Libratry RPi.GPIO not found, light controll not possible! You can install it using 'sudo pip3 install rpi.gpio' to install library")
+
 
 def deinit():
     if not pin:
@@ -37,13 +41,14 @@ def deinit():
     off()
     GPIO.cleanup()
 
+
 def on():
     if not pin:
         raise RuntimeError("No lamp pin selected, no lamp control")
     GPIO.output(pin, logic)
 
+
 def off():
     if not pin:
         raise RuntimeError("No lamp pin selected, no lamp control")
     GPIO.output(pin, not logic)
-

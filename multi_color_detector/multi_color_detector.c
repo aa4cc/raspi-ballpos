@@ -239,25 +239,26 @@ static int find_location(float result[], Color_t image[], uint8_t image_thrs[],
              result[3 * only_ball_color], result[3 * only_ball_color + 1]);*/
 
       // calculate theta
-      if (compute_orientation) {
+      if (compute_orientation && only_ball_color !=NONE) {
         double x = result[3 * only_ball_color];
         double y = result[3 * only_ball_color + 1];
         // fit an ellipse
         float a = ((float)moments[only_ball_color].m20) /
                       moments[only_ball_color].m00 -
                   x * x;
-        float b = 2 * (((float)moments[only_ball_color].m11) /
+        float b = ((float)moments[only_ball_color].m11) /
                            moments[only_ball_color].m00 -
-                       x * y);
+                       x * y;
         float c = ((float)moments[only_ball_color].m02) /
                       moments[only_ball_color].m00 -
                   y * y;
 
-        double theta = (1.0 / 2.0) * atan2(b, a - c);
+        double theta = (1.0 / 2.0) * atan2(2*b, a - c);
 
         float minus_sin_theta = -sin(theta);
         float cos_theta = cos(theta);
 
+        // find which way to fit the ellipse?
         float sum_x_tmp = 0;
         float sum_y_tmp = 0;
         for (y_ind = start_y; y_ind < end_y; y_ind += downsample) {

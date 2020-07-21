@@ -448,20 +448,50 @@ def weighted_line(r0, c0, r1, c1, w=2, rmin=0, rmax=np.inf):
 
     return (yy[mask].astype(int), xx[mask].astype(int), vals[mask])
 
+def paint_triangle(im, top_left_coords, bottom_left_coords, bottom_right_coords):
+    if top_left_coords is not None and bottom_right_coords is not None:
+        theta=np.arctan2(top_left_coords[1]-bottom_right_coords[1],top_left_coords[0]-bottom_right_coords[0])+np.pi/4
+        center_of_mass=[(top_left_coords[0]+bottom_right_coords[0]+bottom_left_coords[0])/3,(top_left_coords[1]+bottom_right_coords[1]+bottom_left_coords[1])/3]
+        print(center_of_mass)
+        for i in range(-4,4+1):
+            im[int(center_of_mass[1])+i,int(center_of_mass[0]),1]=0xff
+            im[int(center_of_mass[1]),int(center_of_mass[0])+i,1]=0xff
+        
+        # paint the triangle
+        side_length_pixel=122
+
+        bl_corner=[center_of_mass[0]-side_length_pixel//3,center_of_mass[1]-side_length_pixel//3] # BL - bottom-left
+        br_corner=[bl_corner[0]+side_length_pixel,bl_corner[1]] # BR - bottom-right
+        tl_corner=[bl_corner[0],bl_corner[1]+side_length_pixel] # TL - top-left
+
+        bl_corner=rotate(center_of_mass,bl_corner,theta)
+        br_corner=rotate(center_of_mass,br_corner,theta)
+        tl_corner=rotate(center_of_mass,tl_corner,theta)
+
+        lines=[weighted_line(bl_corner[0],bl_corner[1],br_corner[0],br_corner[1]),
+            weighted_line(tl_corner[0],tl_corner[1],br_corner[0],br_corner[1]),
+            weighted_line(bl_corner[0],bl_corner[1],tl_corner[0],tl_corner[1])]
+        for line in lines:
+            for i in range(len(line[0])):
+                im[line[1][i],line[0][i]]=[0xff,0x33,0xda]#int(150*line[2][i])
+        return im
+
+
 @app.route('/triangle')
-def draw_triangle():
+def triangle():
     # check if everything has been loaded
     im = getImage()
-    print((im).shape)
     if im is None:
         return "Program hasn't properly started yet - try it again in a few seconds. :-)"
     print(app.processor.centers)
     centers=app.processor.centers
-    yellow=centers[4]
+    red=centers[0]
     blue=centers[1]
-    red=centers[5]
-
-
+    green=centers[2]
+    pink=centers[3]
+    yellow=centers[4]
+    orange=centers[5]
+    
     # paint centers
     for center in centers:
         if center is not None:
@@ -471,37 +501,14 @@ def draw_triangle():
                 im[int(center[1])+i,int(center[0]),:]=0xff
                 im[int(center[1]),int(center[0])+i,:]=0xff
 
-    if blue is not None and red is not None:
-        theta=np.arctan2(blue[1]-red[1],blue[0]-red[0])+np.pi/4
-        center_of_mass=[(blue[0]+red[0]+yellow[0])/3,(blue[1]+red[1]+yellow[1])/3]
-        print(center_of_mass)
-        for i in range(-4,4+1):
-            im[int(center_of_mass[1])+i,int(center_of_mass[0]),1]=0xff
-            im[int(center_of_mass[1]),int(center_of_mass[0])+i,1]=0xff
-        
-        # paint the triangle
-        side_length_pixel=122
+    # paint triangles
+    paint_triangle(im,blue,yellow, red)
+    paint_triangle(im,pink, orange, green)
 
-        y_corner=[center_of_mass[0]-side_length_pixel//3,center_of_mass[1]-side_length_pixel//3]
-        r_corner=[y_corner[0]+side_length_pixel,y_corner[1]]
-        b_corner=[y_corner[0],y_corner[1]+side_length_pixel]
-
-        y_corner=rotate(center_of_mass,y_corner,theta)
-        r_corner=rotate(center_of_mass,r_corner,theta)
-        b_corner=rotate(center_of_mass,b_corner,theta)
-
-        lines=[weighted_line(y_corner[0],y_corner[1],r_corner[0],r_corner[1]),
-            weighted_line(b_corner[0],b_corner[1],r_corner[0],r_corner[1]),
-            weighted_line(y_corner[0],y_corner[1],b_corner[0],b_corner[1])]
-        for line in lines:
-            for i in range(len(line[0])):
-                im[line[1][i],line[0][i],:]=int(255*line[2][i])
-
+    # return the data as a png
     image = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
     _, buffer = cv2.imencode('.png', image)
     return responseImage(buffer.tobytes())
-
-
 
 def start():
     if not app.thread:

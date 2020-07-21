@@ -14,7 +14,7 @@ from fractions import Fraction
 from interface import app as web_interface
 
 from parameters import Parameters
-
+from controller import Controller
 from sharepos import SharedPosition
 import detector
 import processor
@@ -117,11 +117,15 @@ def run(params, processor):
         recording = False
         try:
             shared_position = SharedPosition(processor.numberOfObjects())
+            if params["neural-network"]:
+                nn_controller = Controller(SharedPosition(processor.numberOfObjects(),format='ff',key=3145915))
             setup(camera, params, processor)
             def position_callback(centers):
+                #print(centers)
                 # Write the measured position to the shared memory
                 if shared_position:
                     shared_position.write_many(center if center else (NAN, NAN, NAN) for center in centers)
+                    nn_controller.write()
 
                 if params["preview"] and params["annotate"]:
                     camera.annotate_text = "Position:\n   {}".format("\n   ".join(map(str, centers)))
@@ -192,6 +196,7 @@ def service(params, processor):
 @click.option('--multicore', is_flag=True, help="Start detectors in different processes to speedup detection")
 @click.option('--web-interface/--no-web-interface', is_flag=True, default=True, help="Enable/Disable web interface on port 5001 (default: enable)")
 @click.option('--load-old-color-settings', '-l', is_flag=True, default=False, help="Instead of loading color settings from JSON, values from last run will be used (for MultiColorDetector)")
+@click.option('--neural-network', '-n', is_flag=True,default=False, help='Whether to use neural network or not (not working yet)')
 def main(**kwargs):
     params.load(kwargs["config_file"])
     params.update(kwargs)
