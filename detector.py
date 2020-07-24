@@ -2,7 +2,7 @@ import find_object
 import multi_color_detector
 import io
 import numpy as np
-import cv2
+# import cv2
 import math
 import logging
 import warnings

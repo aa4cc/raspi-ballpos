@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+from numba import jit
 import lamp
 import processor
 import math
@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import struct
 import logging
 import subprocess
-import cv2
+#import cv2
 from detector import Detector
 from threading import Lock, Thread
 from flask import Flask, render_template, send_from_directory, make_response, Response, abort, jsonify, request
@@ -19,9 +19,10 @@ from PIL import Image
 from io import BytesIO
 import re
 import time
-import find_object_colors
+#import find_object_colors
 import inspect
 import matplotlib
+import warnings
 matplotlib.use('Agg')
 
 
@@ -152,10 +153,14 @@ def image(object=None, type=None):
     image = getImage(object, type)
     if image is None:
         abort(404)
+        return "Not loaded yet"
     if len(image.shape) == 3:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    _, buffer = cv2.imencode('.png', image)
-    return responseImage(buffer.tobytes())
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # _, buffer = cv2.imencode('.png', image)
+        pil_image=Image.fromarray(image)
+        byteIO=BytesIO()
+        pil_image.save(byteIO,format='PNG')
+    return responseImage(byteIO.getvalue())
 
 
 @app.route('/imagesc')
@@ -165,6 +170,7 @@ def imagesc(object=None, type=None):
     image = getImage(object, type)
     if image is None:
         abort(404)
+        return "Not loaded yet"
     buffer = BytesIO()
     with plot_lock:
         if len(image.shape) == 3:
@@ -186,11 +192,18 @@ def wb(step=0):
 @app.route('/wb/value')
 def wb_value():
     image = getImage()
+    # print(image[:,:,0].shape)
     if image is None:
         abort(404)
+        return "Not loaded yet"
+    image=np.array(image)
     pt1 = tuple(int(v/2-50) for v in app.params["resolution"])
     pt2 = tuple(int(v/2+50) for v in app.params["resolution"])
-    return jsonify(cv2.mean(image[pt1[0]:pt2[0], pt1[1]:pt2[1], :]))
+    [b,g,r]=np.dsplit(image,image.shape[-1])
+    # print(b.shape)
+    #jsonify(cv2.mean(image[pt1[0]:pt2[0], pt1[1]:pt2[1], :]))
+    # print((list(map(float(np.mean([image[:][:][i] for i in range(3)], axis=0))))))
+    return jsonify([np.mean(b),np.mean(g),np.mean(r)])
 
 
 @app.route('/wb/value/<int:a>,<int:b>')
@@ -199,21 +212,26 @@ def wb_value():
 @app.route('/wb/value/<float:a>,<float:b>')
 def wb_set(a, b):
     print(a,b)
+    # image_wb()
     app.camera.awb_gains = (a, b)
     return "OK"
 
 
 @app.route('/image/wb')
 def image_wb():
-    image = getImage("processor", "centers")
-    if image is None:
-        abort(404)
+#     image = getImage("processor", "centers")
+
 
     pt1 = tuple(int(v/2-50) for v in app.params["resolution"])
     pt2 = tuple(int(v/2+50) for v in app.params["resolution"])
-    image = cv2.rectangle(image, pt1, pt2, (255, 0, 0), 5)
-    _, buffer = cv2.imencode('.png', cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    return responseImage(buffer.tobytes())
+
+    im = getImage()
+    if im is None:
+        abort(404)
+    pil_image=Image.fromarray(im)
+    byteIO=BytesIO()
+    pil_image.save(byteIO,format='PNG')
+    return responseImage(byteIO.getvalue())
 
 
 def get_multidetector():
@@ -232,6 +250,7 @@ def get_multidetector():
 def ball_colors():
     # check if everything has been loaded
     im = getImage()
+
     if im is None:
         return "Program hasn't properly started yet - try it again in a few seconds. :-)"
 
@@ -241,6 +260,8 @@ def ball_colors():
 
     # get samples
     centers = []
+    # print("1")
+
     frame_number = app.processor.frame_number
     test_iterations = request.args.get("i")
     if test_iterations is None:
@@ -255,7 +276,7 @@ def ball_colors():
             test_iterations = 5
     for i in range(test_iterations):
         centers.append(app.processor.centers)
-        while app.processor.frame_number == frame_number:
+        while app.processor.frame_number == frame_number: #wait for next frame
             continue
         frame_number = app.processor.frame_number
 
@@ -276,27 +297,37 @@ def ball_colors():
                 y_coordinates[ball_index].append(sample[1])
             if sample is not None and sample[2] is not None:
                 thetas[ball_index].append(sample[2])
-        '''if current_centers_found == 0:
-            x_coordinates.append(np.nan)
-            y_coordinates.append(np.nan)'''
+        # if current_centers_found == 0:
+        #     x_coordinates.append(np.nan)
+        #     y_coordinates.append(np.nan)
         ball_centers_found.append(current_centers_found)
-    ball_center_means = [(np.mean(x_coordinates[i]), np.mean(
-        y_coordinates[i]), np.mean(thetas[i])) for i in range(len(balls))]
-    ball_center_stds = [(np.std(x_coordinates[i]), np.std(
-        y_coordinates[i]), np.std(thetas[i])) for i in range(len(balls))]
-    percentages = [100*ball_centers_found[i] /
-                   test_iterations for i in range(len(balls))]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        ball_center_means = [(np.mean(x_coordinates[i]), np.mean(
+            y_coordinates[i]), np.mean(thetas[i])) for i in range(len(balls))]
+        ball_center_stds = [(np.std(x_coordinates[i]), np.std(
+            y_coordinates[i]), np.std(thetas[i])) for i in range(len(balls))]
+        percentages = [100*ball_centers_found[i] /
+                    test_iterations for i in range(len(balls))]
 
+    
     # save images for website
-    cv2.imwrite('static/imageBRG.png', im)
-    im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
-    cv2.imwrite('static/image.png', im)
-    im = cv2.cvtColor(im, cv2.COLOR_BGR2HSV)
-    np.save('static/image_hsv', im)
+    pil_image=Image.fromarray(im)
+    # pil_image.save('static/imageBRG.png')
+    # pil_image=pil_image.convert('BGR;16')
+    pil_image.save('static/image.png')
+    # cv2.imwrite('static/imageBRG.png', im)
+    
+    # im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
+    # cv2.imwrite('static/image.png', im)
+    # im = cv2.cvtColor(im, cv2.COLOR_BGR2HSV)
+    # pil_image.save('static/imageBRG.png')
+    pil_image=pil_image.convert('HSV')
+    np.save('static/image_hsv', np.array(pil_image))
 
     return render_template('ball_colors.html', balls=MultiDetector.balls, found=ball_centers_found, test_iterations=test_iterations, means=ball_center_means, percentages=percentages, stds=ball_center_stds, int=int, len=len)
 
-# receives x,y coordinates and reponds with picture color in RGB at that position
+# receives x,y coordinates and responds with picture color in RGB at that position
 @app.route('/ball_colors/color')
 def color():
     try:
@@ -315,7 +346,8 @@ def color():
         y = 0
     im = np.load('static/image_hsv.npy')
     pixel = im[y, x]
-    r, g, b = colorsys.hsv_to_rgb(float(pixel[0])/180, 0.3, 0.3)
+    # print(pixel*[360/256,100/256,100/256])
+    r, g, b = colorsys.hsv_to_rgb(float(pixel[0])/256, 0.3, 0.3)
 
     #print("R: {}, G: {}, B: {}".format(int(r*256), int(g*256), int(b*256)))
     return jsonify(r=int(r*256), g=int(g*256), b=int(b*256))
@@ -325,17 +357,39 @@ def color():
 Used to change ball colors. However, this does not apply the changes - merely set them. 
 It is still necessary to reinit the table in C, preferably using '/ball_colors/set_colors'
 '''
+
+@jit(nopython=True)
+def compute_mask(im, lower_bound, upper_bound, h_mod):
+    # numba does not support the function to be inside the limits() function... 
+    h_max=upper_bound[0]
+    h_min=lower_bound[0]
+    mask=np.zeros_like(im)
+    if h_max > h_mod:
+        for i in range(len(im)):
+            for j in range(len(im[i])):
+                pixel=im[i][j]
+                if (pixel[0]<h_max%h_mod or pixel[0]>h_min) and (pixel[1:]>lower_bound[1:]).all():
+                    mask[i][j]=255
+    else:
+        for i in range(len(im)):
+            for j in range(len(im[i])):
+                pixel=im[i,j]
+                if (pixel>lower_bound).all() and pixel[0]<h_max:
+                    mask[i,j]=255
+    return mask
+
 @app.route('/ball_colors/limits')
 def limits():
+    h_mod=256 #180
     try:
         formatted = (request.args.get('formatted'))
         tolerance = int(request.args.get('tolerance'))
         index = int(request.args.get('index'))
         m = re.match(r'HSV\((.*),(.*),(.*)\)', formatted)
-        h = float(m.group(1))*180
-        tolerance /= 2  # from 360 to 180
-        s = int(m.group(2))
-        v = int(m.group(3))
+        h = float(m.group(1))*h_mod #supplied as float in [0,1]
+        #tolerance /= 2  # from 360 to 180
+        s = int(m.group(2)) #supplied as int in [0,255]
+        v = int(m.group(3)) #supplied as int in [0,255]
     except:
         print("Error formatting at /limits, received: formatted: {}, tolerance: {}, index: {}".format(
               formatted, request.args.get('tolerance'), request.args.get('index')))
@@ -347,29 +401,26 @@ def limits():
     v_min = int(v)
 
     if h_min < 0:
-        h_min += 180
-        h_max += 180
+        h_min += h_mod
+        h_max += h_mod
 
     im = np.load('static/image_hsv.npy')
     lower_bound = np.array([h_min, sat_min, v_min])
     upper_bound = np.array([h_max, 255, 255])
-    if h_max > 180:
-        mask1 = cv2.inRange(im, lower_bound, np.array(
-            [180, 255, 255]))  # (h_min,180)
-        mask2 = cv2.inRange(im, np.array([0, sat_min, v_min]), np.array(
-            [h_max % 180, 255, 255]))  # (0,h_max%180)
-        im = mask1 | mask2
-    else:
-        im = cv2.inRange(im, lower_bound, upper_bound)
 
     MultiDetector = get_multidetector()
     if not isinstance(MultiDetector, Detector):
         return MultiDetector
 
+    # print(f"{h}, {s}, {v}")
     MultiDetector.balls[index].set_new_values(
-        h, tolerance, s, v, htype="180", svtypes="256")
+        h/256*180, tolerance, s, v, htype="180", svtypes="256")
 
-    image = Image.fromarray(im)
+    start=time.time()
+    mask=compute_mask(im, lower_bound,upper_bound,h_mod)
+    # print(compute_mask.inspect_types())
+    print(f"Took {time.time()-start}")
+    image = Image.fromarray(mask)
     image.save("static/im_thrs-{}.png".format(index))
     return "OK"
 

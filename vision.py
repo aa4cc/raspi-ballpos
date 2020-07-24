@@ -3,7 +3,7 @@
 import time
 import picamera
 import numpy as np
-import cv2
+# import cv2
 import socket, struct
 import click
 import sys
@@ -23,7 +23,7 @@ import lamp
 import overlays
 
 from screeninfo import get_monitors
-from imutils.video import FPS
+#from imutils.video import FPS
 
 # Global variables
 logger = logging.getLogger(__name__)
@@ -32,6 +32,8 @@ NAN = float('nan')
 
 def get_sreen_resolution():
     try:
+        print(get_monitors())
+        print("lalala")
         m = get_monitors()[0]
         return m.width, m.height
     except (NotImplementedError, IndexError):
@@ -45,7 +47,7 @@ def setup(camera, params, processor):
     # will stall the image pipeline and crash the script
     camera.framerate = params['frame_rate']        
     camera.shutter_speed = params['exposition_time']*1000
-    camera.iso = params["iso"];
+    camera.iso = params["iso"]
     camera.hflip = params["hflip"]
     camera.vflip = params["vflip"]
 
@@ -117,6 +119,7 @@ def run(params, processor):
         recording = False
         try:
             shared_position = SharedPosition(processor.numberOfObjects())
+            print("nn2:"+str(params['neural-network']))
             if params["neural-network"]:
                 nn_controller = Controller(SharedPosition(processor.numberOfObjects(),format='ff',key=3145915))
             setup(camera, params, processor)
@@ -125,7 +128,7 @@ def run(params, processor):
                 # Write the measured position to the shared memory
                 if shared_position:
                     shared_position.write_many(center if center else (NAN, NAN, NAN) for center in centers)
-                    nn_controller.write()
+                    # nn_controller.write()
 
                 if params["preview"] and params["annotate"]:
                     camera.annotate_text = "Position:\n   {}".format("\n   ".join(map(str, centers)))
@@ -135,7 +138,7 @@ def run(params, processor):
                             overlays.move(o, center, alpha=params["overlay_alpha"])
                         else:
                             overlays.move(o)
-                fps.update()
+                # fps.update()
             processor.callback = position_callback
 
 
@@ -153,7 +156,7 @@ def run(params, processor):
                     print("Directory to store video recording ({}) not found or not accessible".format(fName))
                     return
 
-            fps = FPS().start()
+            # fps = FPS().start()
             print("Starting capture")
             camera.capture_sequence(processor, use_video_port=True, format="rgb")
 
@@ -198,8 +201,10 @@ def service(params, processor):
 @click.option('--load-old-color-settings', '-l', is_flag=True, default=False, help="Instead of loading color settings from JSON, values from last run will be used (for MultiColorDetector)")
 @click.option('--neural-network', '-n', is_flag=True,default=False, help='Whether to use neural network or not (not working yet)')
 def main(**kwargs):
+    # load json and kwargs and pass it to objects to use
     params.load(kwargs["config_file"])
     params.update(kwargs)
+    print("nn1:"+str(params['neural-network']))
     detector.params = params
     processor.params = params
     web_interface.params = params

@@ -1,6 +1,6 @@
 import io
 import numpy as np
-import cv2
+# import cv2
 #from profilehooks import profile
 import image_server
 from pprint import pprint
@@ -101,7 +101,8 @@ class SingleCore(Processor):
             raise StopIteration("Stop proccessing requested")
 
         if params["verbose"] > 0:
-            e1 = cv2.getTickCount()
+            pass
+            # e1 = cv2.getTickCount()
 
         data = np.fromstring(b, dtype=np.uint8)
         self.image = np.resize(data,(params["resolution"][1], params["resolution"][0], 3))
@@ -111,7 +112,7 @@ class SingleCore(Processor):
         if self.callback:
             self.callback(self.centers)
         
-        if params['verbose']:
+        if params['verbose'] and False:
             e2 = cv2.getTickCount()
             elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
 
@@ -121,7 +122,7 @@ class SingleCore(Processor):
             print('Frame: {:5}, center [{}], elapsed time: {:.1f}ms'.format(self.frame_number, c, elapsed_time*1000))
 
         self.frame_number += 1
-
+        # print(self.frame_number)
 
     def processImage(self, image):
         #print([detector.processImage(self.frame_number, image) for detector in self.detectors])

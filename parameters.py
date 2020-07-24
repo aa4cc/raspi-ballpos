@@ -2,6 +2,7 @@ import json
 from pprint import pformat, pprint
 
 class Parameters():
+    # this class  loads the json configuration file, as well as kwargs
     def __init__(self, file=None):
         self.data = {}
         self.file = file
@@ -38,6 +39,9 @@ class Parameters():
         return self.data[name]
 
     def __getitem__(self, key):
+        # print(f"key={key}")
+        if key=="neural-network":
+            return False
         return self.data[key]
 
     def __setitem__(self, key, val):
