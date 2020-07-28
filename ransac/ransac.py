@@ -193,9 +193,9 @@ def ransac(img, ball_colors, confidence_thrs=50, max_iter=40, nr_of_objects=2, b
     border_mask, border_coords = get_border_mask(
         segmentation_mask, ball_coords, step)
     ball_centers = []
-
     # try to find as many objects as specified
-    for _ in range(nr_of_objects):
+    for obj in range(nr_of_objects):
+        # print("object ", obj)
         # check if there even are enough border pixels to look through
         if len(border_coords) < confidence_thrs/4:
             if verbous:
@@ -204,10 +204,12 @@ def ransac(img, ball_colors, confidence_thrs=50, max_iter=40, nr_of_objects=2, b
             continue
         best_model = np.array([0, 0])
         best_inliers = 0
-        for i in range(max_iter):
+        for iteration in range(max_iter):
+            # print("iteration ",iteration)
             # pick random two border points and check the two circles that go through
             intersections = None
-            while intersections is None:
+            failed_to_find_interesection=0 # make sure that there are not two border points too far away, looping forever
+            while intersections is None and failed_to_find_interesection<500:
                 index1 = np.random.randint(len(border_coords)-1)
                 index2 = index1
                 while index2 == index1:
@@ -216,6 +218,10 @@ def ransac(img, ball_colors, confidence_thrs=50, max_iter=40, nr_of_objects=2, b
                 point2 = border_coords[index2]
                 intersections = get_intersections(
                     point1[0], point1[1], r, point2[0], point2[1], r)
+                failed_to_find_interesection+=1
+            if intersections is None: # no two points close enough together were found during previous iterations
+                ball_centers.append(None)
+                continue
             # list(map(...)) does not work in numba...
             center1 = (int(intersections[0][0]), int(intersections[0][1]))
             center2 = (int(intersections[1][0]), int(intersections[1][1]))
@@ -237,7 +243,7 @@ def ransac(img, ball_colors, confidence_thrs=50, max_iter=40, nr_of_objects=2, b
                     best_model = npcenter
             if best_inliers >= confidence_thrs:
                 if verbous:
-                    print("Breaking at: ", i)
+                    print("Breaking at: ", iteration)
                 break
         if verbous:
             print("Best inliers: ", best_inliers)
