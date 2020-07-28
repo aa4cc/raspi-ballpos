@@ -1,0 +1,37 @@
+{
+    "_annotate": "black",
+	"screen_resolution": [
+		800,
+		480
+	],
+	"white_balance": [
+		1.32,
+		3
+	],
+	"exposition_time": 10,
+	"vflip": true,
+	"overlay_alpha": 50,
+	"frame_rate": 50,
+	"hflip": true,
+	"overlay": 2,
+	"resolution": [
+		480,
+		480
+	],
+    "detectors":[
+        {
+            "type": "detector.RansacDetector",
+            "name": "Blue ransac",
+            "ball_colors": [{
+                "h_mid": 240,
+                "h_tolerance": 15,
+                "sat_min": 40,
+                "val_min": 40
+            }],
+            "tracking_window": 64,
+            "downsample": 8,
+            "ball_size": [0, 150]
+    }
+    ]
+}
+    

@@ -33,7 +33,6 @@ NAN = float('nan')
 def get_sreen_resolution():
     try:
         print(get_monitors())
-        print("lalala")
         m = get_monitors()[0]
         return m.width, m.height
     except (NotImplementedError, IndexError):
@@ -56,6 +55,7 @@ def setup(camera, params, processor):
         camera.annotate_text = "Starting detection..."
 
     if params['preview']:
+        # show live camera overlay
         try:
             screen_w, screen_h = get_sreen_resolution()
             print("Screen resolutiuon: {}x{} px".format(screen_w, screen_h))
@@ -119,7 +119,6 @@ def run(params, processor):
         recording = False
         try:
             shared_position = SharedPosition(processor.numberOfObjects())
-            print("nn2:"+str(params['neural-network']))
             if params["neural-network"]:
                 nn_controller = Controller(SharedPosition(processor.numberOfObjects(),format='ff',key=3145915))
             setup(camera, params, processor)
@@ -204,7 +203,6 @@ def main(**kwargs):
     # load json and kwargs and pass it to objects to use
     params.load(kwargs["config_file"])
     params.update(kwargs)
-    print("nn1:"+str(params['neural-network']))
     detector.params = params
     processor.params = params
     web_interface.params = params

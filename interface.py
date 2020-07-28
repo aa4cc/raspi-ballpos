@@ -234,14 +234,15 @@ def image_wb():
     return responseImage(byteIO.getvalue())
 
 
-def get_multidetector():
+def get_hsv_detector():
     if app.processor is None:
         return "App processor hasn't loaded yet!"
     if len(app.processor.detectors) < 0:
         return "No detector registered!"
     for used_detector in app.processor.detectors:
         # type didn't work for some reason...
-        if str(used_detector) == "MultiColorDetector":
+        used_str=str(used_detector)
+        if used_str == "MultiColorDetector" or used_str=='RansacDetector':
             return app.processor.getDetector(used_detector.name)
     return "This webpage only works if you're using the MultiDetector..."
 
@@ -254,7 +255,7 @@ def ball_colors():
     if im is None:
         return "Program hasn't properly started yet - try it again in a few seconds. :-)"
 
-    MultiDetector = get_multidetector()
+    MultiDetector = get_hsv_detector()
     if not isinstance(MultiDetector, Detector):
         return MultiDetector
 
@@ -358,7 +359,7 @@ Used to change ball colors. However, this does not apply the changes - merely se
 It is still necessary to reinit the table in C, preferably using '/ball_colors/set_colors'
 '''
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def compute_mask(im, lower_bound, upper_bound, h_mod):
     # numba does not support the function to be inside the limits() function... 
     h_max=upper_bound[0]
@@ -408,7 +409,7 @@ def limits():
     lower_bound = np.array([h_min, sat_min, v_min])
     upper_bound = np.array([h_max, 255, 255])
 
-    MultiDetector = get_multidetector()
+    MultiDetector = get_hsv_detector()
     if not isinstance(MultiDetector, Detector):
         return MultiDetector
 
@@ -419,7 +420,7 @@ def limits():
     start=time.time()
     mask=compute_mask(im, lower_bound,upper_bound,h_mod)
     # print(compute_mask.inspect_types())
-    print(f"Took {time.time()-start}")
+    # print(f"Took {time.time()-start}")
     image = Image.fromarray(mask)
     image.save("static/im_thrs-{}.png".format(index))
     return "OK"
@@ -432,7 +433,7 @@ def colorpicker_plugin(path):
 # used to save new settings
 @app.route('/ball_colors/set_colors')
 def set_colors():
-    MultiDetector = get_multidetector()
+    MultiDetector = get_hsv_detector()
     if not isinstance(MultiDetector, Detector):
         return MultiDetector
     MultiDetector.init_table()

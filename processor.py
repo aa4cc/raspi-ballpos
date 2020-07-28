@@ -1,7 +1,5 @@
 import io
 import numpy as np
-# import cv2
-#from profilehooks import profile
 import image_server
 from pprint import pprint
 from multiprocessing import Process, Queue, Condition
@@ -11,6 +9,7 @@ from sharemem import SharedMemory
 from detector import Detector
 import itertools
 import math
+import time 
 
 class Processor(io.BytesIO):
     def __init__(self, detectors=None, callback=None, mask=None):
@@ -101,8 +100,7 @@ class SingleCore(Processor):
             raise StopIteration("Stop proccessing requested")
 
         if params["verbose"] > 0:
-            pass
-            # e1 = cv2.getTickCount()
+            e1 = time.time()
 
         data = np.fromstring(b, dtype=np.uint8)
         self.image = np.resize(data,(params["resolution"][1], params["resolution"][0], 3))
@@ -112,26 +110,25 @@ class SingleCore(Processor):
         if self.callback:
             self.callback(self.centers)
         
-        if params['verbose'] and False:
-            e2 = cv2.getTickCount()
-            elapsed_time = (e2 - e1)/ cv2.getTickFrequency()
-
+        if params['verbose']:
+            e2 = time.time()
+            elapsed_time = (e2 - e1)
 
             c = ", ".join(("({0:6.2f}, {1:6.2f})" if math.isnan(center[2]) else "({0:6.2f}, {1:6.2f}, {2:6.4f})").format(*center) if center else "None" for center in self.centers)
 
             print('Frame: {:5}, center [{}], elapsed time: {:.1f}ms'.format(self.frame_number, c, elapsed_time*1000))
 
         self.frame_number += 1
-        # print(self.frame_number)
 
     def processImage(self, image):
-        #print([detector.processImage(self.frame_number, image) for detector in self.detectors])
         detector_results = [detector.processImage(self.frame_number, image) for detector in self.detectors]
+        # print(detector_results)
         # merge results
         centers = list(itertools.chain.from_iterable(detector_results))
         return centers
 
 class MultiCore(Processor):
+    # this is currently not used at no advantage was found... proceed with caution as it may be buggy
     """docstring for MultiCoreDetector"""
     def __init__(self, *args, **kwargs):
         Processor.__init__(self, *args, **kwargs)
