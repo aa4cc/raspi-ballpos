@@ -413,11 +413,11 @@ def limits():
     if not isinstance(MultiDetector, Detector):
         return MultiDetector
 
-    # print(f"{h}, {s}, {v}")
+    print(f"Webpage: {h}, {tolerance} {s}, {v}")
     MultiDetector.balls[index].set_new_values(
-        h/256*180, tolerance, s, v, htype="180", svtypes="256")
+        h, tolerance, s, v, htype="256", svtypes="256")
 
-    start=time.time()
+    # start=time.time()
     mask=compute_mask(im, lower_bound,upper_bound,h_mod)
     # print(compute_mask.inspect_types())
     # print(f"Took {time.time()-start}")

@@ -224,7 +224,7 @@
             $("#tolerance_slider-{{loop.index0}}").slider({
               value: {{int(ball.h_tolerance * 360)}},
               min: 0,
-              max: 20,
+              max: 40,
               stop: function (event, ui) {
                 $("#slider-{{loop.index0}}_value").val(ui.value);
                 send_color_settings({{loop.index0}});

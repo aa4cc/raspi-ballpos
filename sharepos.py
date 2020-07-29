@@ -16,8 +16,8 @@ class SharedPosition(SharedMemory):
         if key is None:
             key = KEY
 
-        self.count = count
-
+        self.count = 100#count
+        print(f"Allocating memory for {self.count} objects...")
         self._format = format
         self._itemsize = calcsize(format)
 

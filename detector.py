@@ -392,7 +392,7 @@ class HSVDetector(Detector):
                 raise RuntimeError(
                     "Unknown svtypes, choose 'float' or any integer (i.e. '360')")
 
-            #print(self.h_mid, self.h_tolerance, self.sat_min, self.val_min)
+            # print("Ball: ",self.h_mid, self.h_tolerance, self.sat_min, self.val_min)
 
         def hsv_specs(self):
             return self.h_mid, self.h_tolerance, self.sat_min, self.val_min
@@ -434,7 +434,7 @@ class HSVDetector(Detector):
         self.orientation_offset = kwargs.get("orientation_offset", -5.47)
 
         # MultiColor Specifics
-        if params['load_old_color_settings']:
+        if ('params' in locals() or 'params' in globals()) and params['load_old_color_settings']:
             self.load_color_settings()
             print("Loaded old settings!")
         else:
@@ -443,7 +443,6 @@ class HSVDetector(Detector):
                 print("Error, no colors supplied in JSON")
             self.balls = [self.BallHSV(
                 **x, htype="360", svtypes="100") for x in ball_colors]
-
     def __repr__(self):
         return("HSV Detector abstract class")
 
@@ -451,7 +450,7 @@ class HSVDetector(Detector):
         with open(file_name, 'wb') as settings_file:
             pickle.dump(self.balls, settings_file, pickle.HIGHEST_PROTOCOL)
 
-    def load_color_settings(self):
+    def load_color_settings(self,file_name):
         try:
             with open(file_name, 'rb') as settings_file:
                 self.balls = pickle.load(settings_file)
@@ -557,26 +556,29 @@ class RansacDetector(HSVDetector):
     def init_table(self):
         colors = [ball.hsv_specs() for ball in self.balls]
         if len(colors) != 1:
-            raise NotImplementedError("Only one color supported in RANSAC ATM")
+            raise NotImplementedError("Only one color supported in RANSAC at the moment")
+
+        # convert from floats to int
         h_mid, h_tol, s_min, v_min = colors[0]
         h_min = (h_mid-h_tol)*360
         h_max = (h_mid+h_tol)*360
         if h_min < 0:
             h_min += 360
             h_max += 360
-
+        s_min*=100
+        v_min*=100
         try:
-            rgb2hsv_table = np.load('rgb2hsv_table.npy')
+            rgb2hsv_table = np.load('rgb2hsv_table_v2.npy')
         except:
             print("RGB2HSV conversion table not found - this initialization will take a lot longer than the next one, due to its computation.")
             rgb2hsv_table = ransac.get_rgb2hsv_table()
-            np.save('rgb2hsv_table.npy', rgb2hsv_table)
-
-        print(h_min, h_max, s_min, v_min)
+            np.save('rgb2hsv_table_v2.npy', rgb2hsv_table)
+        print(f"Color settings (init_table): h_min={h_min}, h_max={h_max}, s_min={s_min}, v_min={v_min}")
         self.rgb_ball_colors = ransac.get_ball_colors(
             rgb2hsv_table, h_min, h_max, s_min, v_min)
 
     def __init__(self, **kwargs):
+        # print(kwargs)
         self.number_of_objects = kwargs.get("number_of_objects", 1)
         self.ball_diameter = kwargs.get("ball_diameter_pixels", 40)
         self.max_iterations = kwargs.get("max_iterations", 40)
@@ -599,10 +601,11 @@ class RansacDetector(HSVDetector):
             self.images["image"] = image
 
             if image is not None:
-                self.centers = ransac.ransac(image, self.rgb_ball_colors, self.confidence_threshold, self.max_iterations,
+                self.centers = ransac.detect(image, self.rgb_ball_colors, self.confidence_threshold, self.max_iterations,
                                              self.number_of_objects, self.ball_diameter)
                 self.centers = [None if center is None else (
                     *center, NAN) for center in self.centers]
+                assert len(self.centers)==self.number_of_objects
             else:
                 print("Image is None")
                 self.centers = [None for i in range(self.number_of_objects)]

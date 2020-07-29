@@ -32,10 +32,11 @@ def rgb2hsv(r, g, b):
     elif c_max == b_norm:
         h = ((r_norm-g_norm)/delta+4)
     h *= 60
+    if h<0:
+        h+=360
 
     s = 0 if c_max == 0 else delta/c_max*100
     v = c_max*100
-
     return h, s, v
 
 
@@ -43,14 +44,16 @@ def rgb2hsv(r, g, b):
 def hsv_in_range(h, s, v, h_min, h_max, s_min, v_min, h_mod):
     # h_min < h_max (h_max may be >h_mod)
     if h_max > h_mod:
-        return (h < h_max % h_mod or h > h_min) and s > s_min and v > v_min
+        return (h <= h_max % h_mod or h >= h_min) and s >= s_min and v >= v_min
     else:
-        return h < h_max and h > h_min and s > s_min and v > v_min
+        return h <= h_max and h >= h_min and s >= s_min and v >= v_min
 
 
 @jit(nopython=True, cache=True)
 def get_ball_colors(table, h_min, h_max, s_min, v_min, h_mod=360, color_res=256):
     # returns a True/False array whether an RGB pixel is within a HSV rectangle
+    # required values: h in [0,360], s in [0,100], v in [0,100]
+
     ball_colors = np.empty(
         shape=(color_res, color_res, color_res), dtype=np.dtype('?'))
     for r in range(color_res):
@@ -179,96 +182,103 @@ def filter_detected_ball(center, r, border_coords):
     return np.array(new_bcoords)
 
 @jit(nopython=True, cache=True)
-def ransac(img, ball_colors, confidence_thrs=50, max_iter=40, nr_of_objects=2, ball_diameter=40, verbous=False):
+def ransac(border_coords, r, max_iter, confidence_thrs,verbous):
+    best_model = np.array([0, 0])
+    best_inliers = 0
+    for iteration in range(max_iter):
+        # print("iteration ",iteration)
+        # pick random two border points and check the two circles that go through
+        intersections = None
+        failed_to_find_interesection=0 # make sure that there are not two border points too far away, looping forever
+        while intersections is None and failed_to_find_interesection<500:
+            index1 = np.random.randint(len(border_coords)-1)
+            index2 = index1
+            while index2 == index1:
+                index2 = np.random.randint(len(border_coords)-1)
+            point1 = border_coords[index1]
+            point2 = border_coords[index2]
+            intersections = get_intersections(
+                point1[0], point1[1], r, point2[0], point2[1], r)
+            failed_to_find_interesection+=1
+        if intersections is None: # no two points close enough together were found during previous iterations
+            return None
+        # list(map(...)) does not work in numba...
+        center1 = (int(intersections[0][0]), int(intersections[0][1]))
+        center2 = (int(intersections[1][0]), int(intersections[1][1]))
+        if center1 == center2:
+            center_list = [center1]
+        else:
+            center_list = [center1, center2]
+        
+        # count border pixels fitting the model
+        for center in center_list:
+            npcenter = np.array(center)
+            differences = (border_coords-npcenter)
+            # numba does not support the axis argument --> custom function
+            distances = norm_axis1(differences)
+            inliers = len(
+                distances[np.where((distances < 1.05*r) & (distances > 0.95*r))])
+            if inliers > best_inliers:
+                best_inliers = inliers
+                best_model = npcenter
+        if best_inliers >= confidence_thrs:
+            if verbous:
+                print("Breaking at: ", iteration)
+            break
+    if verbous:
+        print("Best inliers: ", best_inliers)
+    return best_model
+
+
+@jit(nopython=True, cache=True)
+def detect(img, ball_colors, confidence_thrs=50, max_iter=40, nr_of_objects=2, ball_diameter=40, downsample=3, verbous=False):
     # performs the ransac algorithm
     # finds ball(s) in img, colors are specified in ball_colors, which is a table 256x256x256 (RGB) denoting which colors are to be considered for ball
     # runs until either confence_thrs pixels are fitting the model (border) or when max_iter is reached
     # ball diameter (in pixels) defines the model that is fitted
+    # if downsample is set to x>1, only every xth pixel is sampled
 
     r = ball_diameter/2
 
-    step = 3 # only every xth pixel is checked (for speed)
     segmentation_mask, ball_coords = get_segmentation_mask(
-        img, ball_colors, step)
+        img, ball_colors, downsample)
     border_mask, border_coords = get_border_mask(
-        segmentation_mask, ball_coords, step)
+        segmentation_mask, ball_coords, downsample)
     ball_centers = []
     # try to find as many objects as specified
     for obj in range(nr_of_objects):
         # print("object ", obj)
         # check if there even are enough border pixels to look through
-        if len(border_coords) < confidence_thrs/4:
+        if len(border_coords) < confidence_thrs/4 or (len(ball_centers)>0 and ball_centers[-1] is None):
             if verbous:
                 print("Out of balls")
             ball_centers.append(None)
             continue
-        best_model = np.array([0, 0])
-        best_inliers = 0
-        for iteration in range(max_iter):
-            # print("iteration ",iteration)
-            # pick random two border points and check the two circles that go through
-            intersections = None
-            failed_to_find_interesection=0 # make sure that there are not two border points too far away, looping forever
-            while intersections is None and failed_to_find_interesection<500:
-                index1 = np.random.randint(len(border_coords)-1)
-                index2 = index1
-                while index2 == index1:
-                    index2 = np.random.randint(len(border_coords)-1)
-                point1 = border_coords[index1]
-                point2 = border_coords[index2]
-                intersections = get_intersections(
-                    point1[0], point1[1], r, point2[0], point2[1], r)
-                failed_to_find_interesection+=1
-            if intersections is None: # no two points close enough together were found during previous iterations
-                ball_centers.append(None)
-                continue
-            # list(map(...)) does not work in numba...
-            center1 = (int(intersections[0][0]), int(intersections[0][1]))
-            center2 = (int(intersections[1][0]), int(intersections[1][1]))
-            if center1 == center2:
-                center_list = [center1]
-            else:
-                center_list = [center1, center2]
-            
-            # count border pixels fitting the model
-            for center in center_list:
-                npcenter = np.array(center)
-                differences = (border_coords-npcenter)
-                # numba does not support the axis argument --> custom function
-                distances = norm_axis1(differences)
-                inliers = len(
-                    distances[np.where((distances < 1.05*r) & (distances > 0.95*r))])
-                if inliers > best_inliers:
-                    best_inliers = inliers
-                    best_model = npcenter
-            if best_inliers >= confidence_thrs:
-                if verbous:
-                    print("Breaking at: ", iteration)
-                break
-        if verbous:
-            print("Best inliers: ", best_inliers)
+        
+        best_model=ransac(border_coords, r, max_iter, confidence_thrs,verbous)
 
-        # remove detected ball
-        border_coords = filter_detected_ball(best_model, r, border_coords)
+        if best_model is not None:
+            # remove detected ball
+            border_coords = filter_detected_ball(best_model, r, border_coords)
         ball_centers.append(best_model)
-    '''
-    # prepare image for painting
+    
+    '''# prepare image for painting
     img=Image.fromarray(img)
     img.save('camera.png')
     d=ImageDraw.Draw(img)
     ball_coords=list(map(tuple,ball_coords))
     d.point(ball_coords,fill='red')
     border_mask, border_coords = get_border_mask(
-        segmentation_mask, ball_coords, step)
+        segmentation_mask, ball_coords, downsample)
     border_coords=list(map(tuple,border_coords))
     # print(border_coords)
     d.point(border_coords,fill='white') # only paints the remaining border
 
     
     for best_model in ball_centers:
-        best_model=best_model
-        bounding_box=[*(best_model-r),*(best_model+r)]
-        d.ellipse(bounding_box,width=2,outline='blue')
+        if best_model is not None:
+            bounding_box=[*(best_model-r),*(best_model+r)]
+            d.ellipse(bounding_box,width=2,outline='blue')
     segmentation=Image.fromarray(255*segmentation_mask)
     border=Image.fromarray(255*border_mask)
     segmentation.save('segmentation.png')

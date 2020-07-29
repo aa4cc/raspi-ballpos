@@ -133,6 +133,7 @@ class MultiCore(Processor):
     def __init__(self, *args, **kwargs):
         Processor.__init__(self, *args, **kwargs)
         key = kwargs.get("key", 123456)
+        
         self.sm = SharedMemory(key, params["resolution"][0]*params["resolution"][0]*3)
         self.start_cond = Condition()
         self.stop_event = multiprocessing.Event()
