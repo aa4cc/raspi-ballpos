@@ -27,10 +27,12 @@
                 "h_tolerance": 15,
                 "sat_min": 40,
                 "val_min": 40
-            }],
-            "tracking_window": 64,
-            "downsample": 8,
-            "ball_size": [0, 150]
+			}],
+			"downsample": 2,
+			"number_of_objects": 6,
+			"ball_diameter_pixels": 40,
+			"max_iterations": 40,
+			"confidence_threshold": 50
     }
     ]
 }

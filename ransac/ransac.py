@@ -174,7 +174,7 @@ def filter_detected_ball(center, r, border_coords):
     for i, dist in enumerate(distances):
         if dist > 1.2*r:
             new_bcoords.append((border_coords[i, 0], border_coords[i, 1]))
-        if len(new_bcoords):
+        if len(new_bcoords)==0:
             new_bcoords.append((-1,-1)) # once more, let's bribe numba to play nice and not crash
     return np.array(new_bcoords)
 
@@ -187,7 +187,7 @@ def ransac(img, ball_colors, confidence_thrs=50, max_iter=40, nr_of_objects=2, b
 
     r = ball_diameter/2
 
-    step = 2 # only every 2nd pixel is checked (for speed)
+    step = 3 # only every xth pixel is checked (for speed)
     segmentation_mask, ball_coords = get_segmentation_mask(
         img, ball_colors, step)
     border_mask, border_coords = get_border_mask(
@@ -251,7 +251,6 @@ def ransac(img, ball_colors, confidence_thrs=50, max_iter=40, nr_of_objects=2, b
         # remove detected ball
         border_coords = filter_detected_ball(best_model, r, border_coords)
         ball_centers.append(best_model)
-
     '''
     # prepare image for painting
     img=Image.fromarray(img)
