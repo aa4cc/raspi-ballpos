@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link rel="icon" type="image/png" sizes="32x32" href="static/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="static/favicon-16x16.png">
+    <link rel="manifest" href="static/site.webmanifest">
+    <link rel="mask-icon" href="static/safari-pinned-tab.svg" color="#5bbad5">
+    <meta name="msapplication-TileColor" content="#da532c">
+    <meta name="theme-color" content="#666666">
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" crossorigin="anonymous"></script>
+    <script>window.jQuery || document.write('<script src="/static/js/vendor/jquery-slim.min.js"><\/script>')</script>
+    <title>RaspiBallPosInterface</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css"
+        integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp" crossorigin="anonymous">
+    <link href="/static/css/ransac.css" rel="stylesheet" type="text/css" />
+    <!-- Custom styles for this template -->
+</head>
+
+<body onload="load()">
+    <script type="text/javascript">
+        function toggle_image(image_class) {
+            var cb_string = [image_class, '_cb'].join('');
+            var images = document.getElementsByClassName(image_class);
+            var checked = document.getElementById(cb_string).checked;
+            for (image of images) {
+                image.style.visibility=(checked?'visible':'hidden')
+            }
+        }
+
+        function load() {
+            {%for image, _ in images_n_labels[1:]%}
+            var checked = JSON.parse(localStorage.getItem("{{image}}_cb"));
+            document.getElementById("{{image}}_cb").checked = checked;
+            var images = document.getElementsByClassName("{{image}}");
+            for (im of images) {
+                im.style.visibility=(checked?'visible':'hidden')
+            }
+            // image.toggle($(this).prop('checked'));
+            {% endfor %}
+        }
+
+        function save(id) {
+            var checkbox = document.getElementById(id);
+            console.log(checkbox.attributes)
+            localStorage.setItem(id, checkbox.checked);
+        }
+
+    </script>
+
+    <div class="container">
+        {%for image,_ in images_n_labels%}
+        <img class="{{image}}" src="/static/{{image}}-0.png" {%if image!= 'image_crop'%}style="visibility: hidden;\"
+            {%endif%} />
+        {%endfor%}
+    </div>
+    <div id="checkboxes">
+        {%for image, label in images_n_labels[1:]%}
+        <input id={{image}}_cb type="checkbox" name={{image}}_cb class="cboxes"
+            onchange="save('{{image}}_cb'); toggle_image('{{image}}')" />
+        <label for={{image}}_cb>{{label}}</label>
+        <script>
+            $(document).ready(function () {
+                toggle_image("{{ image }}");
+            });
+        </script>
+        <br>
+        {%endfor%}
+    </div>
+    <div>
+        
+    </div>
+
+
+    <!-- Bootstrap core JavaScript
+		================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
+</body>
+
+</html>

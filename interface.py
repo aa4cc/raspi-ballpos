@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from numba import jit
+# from numba import jit
 import lamp
 import processor
 import math
@@ -9,7 +9,7 @@ import struct
 import logging
 import subprocess
 #import cv2
-from detector import Detector
+from detector import Detector, RansacDetector
 from threading import Lock, Thread
 from flask import Flask, render_template, send_from_directory, make_response, Response, abort, jsonify, request
 from flask_bootstrap import Bootstrap
@@ -359,24 +359,17 @@ Used to change ball colors. However, this does not apply the changes - merely se
 It is still necessary to reinit the table in C, preferably using '/ball_colors/set_colors'
 '''
 
-@jit(nopython=True, cache=True)
-def compute_mask(im, lower_bound, upper_bound, h_mod):
-    # numba does not support the function to be inside the limits() function... 
-    h_max=upper_bound[0]
-    h_min=lower_bound[0]
-    mask=np.zeros_like(im)
-    if h_max > h_mod:
-        for i in range(len(im)):
-            for j in range(len(im[i])):
-                pixel=im[i][j]
-                if (pixel[0]<h_max%h_mod or pixel[0]>h_min) and (pixel[1:]>lower_bound[1:]).all():
-                    mask[i][j]=255
+# @jit(nopython=True, cache=True)
+from ransac_detector_ctypes import Ball_t
+from ctypes import byref
+def compute_mask(im, detector, ball_t):
+    image=getImage()
+    mask=np.zeros(shape=tuple(image.shape[:2]),dtype=np.uint8)
+    # print(mask.shape)
+    if isinstance(detector,RansacDetector):
+        detector.c_funcs.get_segmentation_mask(im,*image.shape[:2],mask,byref(ball_t))
     else:
-        for i in range(len(im)):
-            for j in range(len(im[i])):
-                pixel=im[i,j]
-                if (pixel>lower_bound).all() and pixel[0]<h_max:
-                    mask[i,j]=255
+        print("This detector does not support segmentation mask in browser, sorry!")
     return mask
 
 @app.route('/ball_colors/limits')
@@ -395,7 +388,7 @@ def limits():
         print("Error formatting at /limits, received: formatted: {}, tolerance: {}, index: {}".format(
               formatted, request.args.get('tolerance'), request.args.get('index')))
         return "ERROR"
-
+    # TODO: check if hues overlap
     h_min = int(h-tolerance)
     h_max = int(h+tolerance)
     sat_min = int(s)
@@ -418,7 +411,9 @@ def limits():
         h, tolerance, s, v, htype="256", svtypes="256")
 
     # start=time.time()
-    mask=compute_mask(im, lower_bound,upper_bound,h_mod)
+
+    mask=compute_mask(im, MultiDetector, Ball_t(h_min,h_max,s,v))
+
     # print(compute_mask.inspect_types())
     # print(f"Took {time.time()-start}")
     image = Image.fromarray(mask)
@@ -439,6 +434,36 @@ def set_colors():
     MultiDetector.init_table()
     MultiDetector.save_color_settings()
     return "OK"
+
+@app.route('/ransac')
+def ransac_settings():
+    detector=get_hsv_detector()
+    if not isinstance(detector,RansacDetector):
+        return "This page only works with RansacDetector"
+    centers=detector.centers
+    center=centers[0]
+    print(center)
+    if center is None:
+        return "Ball not found"
+    image=getImage()
+    offset=30
+    w_low=max(0,int(center[0]-offset))
+    w_high=min(image.shape[0],int(center[0]+offset))
+
+    h_low=max(0,int(center[1]-offset))
+    h_high=min(image.shape[1],int(center[1]+offset))
+    
+    image_crop=image[h_low:h_high,w_low:w_high,:]
+    images=[image_crop]
+    images.extend(detector.processImageOverlay(image_crop,[offset,offset]))
+    images_strs=["image_crop","seg_background","seg_ball","seg_border","ransac_contour","ransac_tolerance_contour","lsq_modeled_contour","lsq_border_contour"]
+    checkbox_labels=["","Background mask", "Ball mask", "Border mask", "Ransac fit", "Ransac tolerance (\"modeled\" pixels)","LSQ (fit to RANSAC)","LSQ (fit to all border)"]
+
+    for image, image_str in zip(images,images_strs):
+        image=Image.fromarray(image)
+        image.save(f"static/{image_str}-{0}.png")
+
+    return render_template('ransac.html',ball_nr=detector.number_of_objects,images_n_labels=list(zip(images_strs,checkbox_labels)))
 
 def rotate(origin, point, angle):
     """
