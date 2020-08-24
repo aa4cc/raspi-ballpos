@@ -435,18 +435,16 @@ def set_colors():
     MultiDetector.save_color_settings()
     return "OK"
 
-@app.route('/ransac')
-def ransac_settings():
-    detector=get_hsv_detector()
+def generate_images(detector):
     if not isinstance(detector,RansacDetector):
         return "This page only works with RansacDetector"
     centers=detector.centers
     center=centers[0]
-    print(center)
+    # print(center)
     if center is None:
-        return "Ball not found"
+        return None
     image=getImage()
-    offset=30
+    offset=detector.ball_radius*1.5
     w_low=max(0,int(center[0]-offset))
     w_high=min(image.shape[0],int(center[0]+offset))
 
@@ -454,16 +452,60 @@ def ransac_settings():
     h_high=min(image.shape[1],int(center[1]+offset))
     
     image_crop=image[h_low:h_high,w_low:w_high,:]
-    images=[image_crop]
-    images.extend(detector.processImageOverlay(image_crop,[offset,offset]))
-    images_strs=["image_crop","seg_background","seg_ball","seg_border","ransac_contour","ransac_tolerance_contour","lsq_modeled_contour","lsq_border_contour"]
-    checkbox_labels=["","Background mask", "Ball mask", "Border mask", "Ransac fit", "Ransac tolerance (\"modeled\" pixels)","LSQ (fit to RANSAC)","LSQ (fit to all border)"]
+    nr_modeled,gen_ims=detector.processImageOverlay(image_crop,[offset,offset])
+    images=[image_crop,*gen_ims]
+    return [nr_modeled],images
 
-    for image, image_str in zip(images,images_strs):
-        image=Image.fromarray(image)
-        image.save(f"static/{image_str}-{0}.png")
+def save_images(images):
+    filenames=["image_crop","seg_background","seg_ball","seg_border","ransac_contour","ransac_tolerance_contour","lsq_modeled_contour","lsq_border_contour"]
+    for image, filename in zip(images,filenames):
+        try:
+            image=Image.fromarray(image)
+            image.save(f"static/{filename}-{0}.png")
+        except:
+            print(f"failed with image {image}")
+    return filenames
 
-    return render_template('ransac.html',ball_nr=detector.number_of_objects,images_n_labels=list(zip(images_strs,checkbox_labels)))
+@app.route('/ransac')
+def ransac_settings():
+    detector=get_hsv_detector()
+    nr_modeled,images=generate_images(detector)
+    if images is not None:
+        filenames=save_images(images)
+        checkbox_labels=["","Background mask", "Ball mask", "Border mask", "Ransac fit", "Ransac tolerance (\"modeled\" pixels)","LSQ (fit to RANSAC)","LSQ (fit to all border)"]
+        ids=["ids", "ball_radius", "max_iterations", "confidence_threshold", "tol_min", "tol_max"]
+        values=[ids, detector.ball_radius,detector.max_iterations,detector.confidence_threshold,detector.min_dist/detector.ball_radius,detector.max_dist/detector.ball_radius]
+        settings=dict(zip(ids,values))
+        return render_template('ransac.html',ball_nr=detector.number_of_objects,images_n_labels=list(zip(filenames,checkbox_labels)),settings=settings,nr_modeled=nr_modeled)
+    else:
+        return "Ball not found"
+
+@app.route('/ransac/change')
+def change_value():
+    detector=detector=get_hsv_detector()
+    id=request.args.get('id')
+    value=request.args.get('value')
+    # print(f"received {value}")
+    if '.' in value:
+        value=float(value)
+    else:
+        value=int(value)
+    if id=='tol_min':
+        id='min_dist'
+        value*=detector.ball_radius
+    elif id=='tol_max':
+        id='max_dist'
+        value*=detector.ball_radius
+    elif id=='ball_radius':
+        # print(f"min dist {detector.min_dist}, br {detector.ball_radius}")
+        detector.min_dist=detector.min_dist/detector.ball_radius*value
+        detector.max_dist=detector.max_dist/detector.ball_radius*value
+    # print(f"setting value {value}")
+    detector.__setattr__(id,value)
+    # detector.min_dist=1
+    nr_modeled,images=generate_images(detector)
+    save_images(images)
+    return jsonify(nr_modeled=nr_modeled)
 
 def rotate(origin, point, angle):
     """

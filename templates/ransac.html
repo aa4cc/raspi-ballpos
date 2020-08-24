@@ -33,7 +33,7 @@
             var images = document.getElementsByClassName(image_class);
             var checked = document.getElementById(cb_string).checked;
             for (image of images) {
-                image.style.visibility=(checked?'visible':'hidden')
+                image.style.visibility = (checked ? 'visible' : 'hidden')
             }
         }
 
@@ -43,7 +43,7 @@
             document.getElementById("{{image}}_cb").checked = checked;
             var images = document.getElementsByClassName("{{image}}");
             for (im of images) {
-                im.style.visibility=(checked?'visible':'hidden')
+                im.style.visibility = (checked ? 'visible' : 'hidden')
             }
             // image.toggle($(this).prop('checked'));
             {% endfor %}
@@ -55,15 +55,53 @@
             localStorage.setItem(id, checkbox.checked);
         }
 
+        function sleep(milliseconds) {
+            const date = Date.now();
+            let currentDate = null;
+            do {
+                currentDate = Date.now();
+            } while (currentDate - date < milliseconds);
+        }
+
+        function fake_image_update() {
+            {%for image, label in images_n_labels[1:]%}
+            $(".{{image}}").attr(
+                "src", "/static/{{image}}-0.png?time=" + new Date().getTime()
+            )
+            {% endfor %}
+        }
+
+        function update_modeled_values(data){
+            {%for i in range(ball_nr)%}
+            console.log(data.nr_modeled[0])
+            $("#modeled-{{i}}").text("modeled "+data.nr_modeled[{{i}}]);
+            {%endfor%}
+        }
+
+        function change_parameter(id) {
+            console.log(document.getElementById(id).value)
+            $.getJSON("/ransac/change", {
+                id: id,
+                value: document.getElementById(id).value,
+            }, function(data){update_modeled_values(data)});
+            // no idea why but calling it once, then sleeping and calling it for the second time makes it work...
+            fake_image_update()
+            sleep(100);
+            fake_image_update();
+        }
+
+
     </script>
 
     <div class="container">
         {%for image,_ in images_n_labels%}
-        <img class="{{image}}" src="/static/{{image}}-0.png" {%if image!= 'image_crop'%}style="visibility: hidden;\"
-            {%endif%} />
+        <img class="{{image}}" src="/static/{{image}}-0.png" {%if image!= 'image_crop'%}style="visibility: hidden;\"{%endif%} />
+        {%endfor%}
+        {%for i in range(ball_nr)%}
+        <p id="modeled-{{i}}">modeled: {{nr_modeled[i]}}</p>
         {%endfor%}
     </div>
-    <div id="checkboxes">
+    <div id="checkboxes" class="padded_left">
         {%for image, label in images_n_labels[1:]%}
         <input id={{image}}_cb type="checkbox" name={{image}}_cb class="cboxes"
             onchange="save('{{image}}_cb'); toggle_image('{{image}}')" />
@@ -76,10 +114,31 @@
         <br>
         {%endfor%}
     </div>
-    <div>
-        
+    <br>
+    <div id="settings" class="padded_left">
+        Ball radius:
+        <input id="{{settings.ids[1]}}" value="{{settings.ball_radius}}" />
+        <br>
+        Maximum iterations:
+        <input id="{{settings.ids[2]}}" value="{{settings.max_iterations}}" />
+        <br>
+        Confidence threshold:
+        <input id="{{settings.ids[3]}}" value="{{settings.confidence_threshold}}" />
+        <br>
+        Tolerance coeff min: <input id="{{settings.ids[4]}}" value="{{settings.tol_min}}" /> max: <input
+            id="{{settings.ids[5]}}" value="{{settings.tol_max}}" />
     </div>
-
+    <script>
+        let node;
+        $(document).ready(function () {
+            {%for id in settings.ids[1:]%}
+            node = document.getElementById("{{id}}");
+            node.addEventListener('keyup', ({ key }) => {
+                if (key === "Enter") change_parameter("{{id}}");
+            })
+            {% endfor %}
+        });
+    </script>
 
     <!-- Bootstrap core JavaScript
 		================================================== -->

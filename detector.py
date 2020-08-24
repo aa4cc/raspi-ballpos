@@ -15,6 +15,7 @@ import sys
 # from ransac import ransac
 import ransac_detector_ctypes
 from ransac_detector_ctypes import Coord_t, Ball_t
+import threading
 
 sys.path
 sys.path.insert(0, './find_object')
@@ -577,7 +578,8 @@ class RansacDetector(HSVDetector):
         self.max_iterations = kwargs.get("max_iterations", 40)
         self.confidence_threshold = kwargs.get("confidence_threshold", 160)
         self.max_dx = kwargs.get("maximum_position_change", 4*self.ball_radius)
-        border_tolerance_coeffs=kwargs.get("border_tolerance_coeffs", [0.9,1.1])
+        border_tolerance_coeffs = kwargs.get(
+            "border_tolerance_coeffs", [0.9, 1.1])
         self.min_dist = border_tolerance_coeffs[0]*self.ball_radius
         self.max_dist = border_tolerance_coeffs[1]*self.ball_radius
 
@@ -587,6 +589,7 @@ class RansacDetector(HSVDetector):
         self.centers_c = self.list_as_carg(
             [Coord_t(np.nan, np.nan) for _ in range(self.number_of_objects)])
         self.centers = [None for i in range(self.number_of_objects)]
+        self.lock=threading.Lock()
 
     def __repr__(self):
         return("RansacDetector")
@@ -629,6 +632,7 @@ class RansacDetector(HSVDetector):
 
     # finds centers of all the balls in the image (if possible)
     def processImage(self, frame_number, image, save=False):
+        self.frame_number = frame_number
         try:
             self.images["image"] = image
 
@@ -637,11 +641,12 @@ class RansacDetector(HSVDetector):
                 previous_positions = [Coord_t(*center[:2]) if center is not None else Coord_t(
                     np.nan, np.nan) for center in self.centers]
                 verbose = False
+                self.lock.acquire()
                 self.c_funcs.detect_balls(
                     self.rgb2balls, image, *image.shape[:2], self.downsample, self.list_as_carg(
                         previous_positions), len(previous_positions), self.max_dx**2,
                     self.ball_radius, self.min_dist, self.max_dist, self.max_iterations, self.confidence_threshold, verbose, self.centers_c)
-
+                self.lock.release()
                 # parse the result back
                 self.centers = [None if np.isnan(center.x) else (
                     center.x, center.y, NAN) for center in self.centers_c]
@@ -655,13 +660,15 @@ class RansacDetector(HSVDetector):
             logger.exception(e)
 
     def processImageOverlay(self, image, center, index=0):
+        frame_start = self.frame_number
+        self.lock.acquire()
         def set_shade_visible(im, color, alpha=255):
             im[:, :, 3] = (alpha * (im[:, :, 3] == color)).astype(np.uint8)
 
         def coope_fit(coords):
             # fits a circle to a predefined set of coords
             # https://link.springer.com/content/pdf/10.1007/BF00939613.pdf
-            coords=np.array(coords)
+            coords = np.array(coords)
             affine_points = np.concatenate(
                 (coords, np.ones(shape=(len(coords), 1))), axis=1)
             d = (np.power(coords.T[0], 2) +
@@ -683,6 +690,7 @@ class RansacDetector(HSVDetector):
             #  xx and yy are 200x200 tables containing the x and y coordinates as values
             yy, xx = np.mgrid[:image.shape[0], :image.shape[1]]
             circle = np.power(xx - center[0], 2) + np.power(yy - center[1], 2)
+            # print(f"r: {radius}, tol: {tolerance}")
             return (circle < (radius + tolerance[1])**2) & (circle > (radius - tolerance[0])**2)
 
         # prepare the variables
@@ -696,42 +704,46 @@ class RansacDetector(HSVDetector):
         ball_coords_c = POINTER(c_int)()
         border_coords_c = POINTER(c_int)()
         previous_pos = [Coord_t(np.nan, np.nan)]
-        new_center_c=Coord_t(np.nan, np.nan)
+        new_center_c = Coord_t(np.nan, np.nan)
 
         # get segmentation
         ball_coords_c = POINTER(c_int)()
         ball_coords_l = self.c_funcs.get_ball_pixels(
             image, width, height, self.rgb2balls, self.downsample, seg_mask, byref(ball_coords_c))
-
+        # print(f"found {ball_coords_l} ball coords")
         # get border
         border_coords_l = self.c_funcs.get_border_coords(seg_mask, width, height, ball_coords_c, ball_coords_l, self.list_as_carg(previous_pos), len(
             previous_pos), self.downsample, self.max_dx**2, border_mask, group_mask, byref(group_index_c), byref(group_index_ls), byref(border_coords_c))
+        # print(f"found {border_coords_l} border coords")
         border_coords = np.array([[border_coords_c[2*i], border_coords_c[2*i+1]]
                                   for i in range(border_coords_l)])
+        if border_coords_l>0:
+            # find which pixels were modeled
+            border_coords_t = self.list_as_carg(
+                [Coord_t(*bc) for bc in border_coords], Coord_t)
+            self.c_funcs.ransac(border_coords_t, border_coords_l, self.ball_radius, self.min_dist,
+                                self.max_dist, self.max_iterations, self.confidence_threshold, False, byref(new_center_c))
+            new_center = [new_center_c.x, new_center_c.y]
+            indexes = self.list_as_carg([c_int(0)
+                                        for i in range(len(border_coords))])
+            
+            nr_modeled = self.c_funcs.find_modeled_pixels(byref(new_center_c), byref(
+                new_center_c), self.max_dx, self.min_dist, self.max_dist, border_coords_t, border_coords_l, None, 0, indexes)
+            modeled_coords = [list(border_coords[i]) for i in indexes[:nr_modeled]]
+            # print(self.max_dx, self.min_dist, self.max_dist)
+            # print(f"modeled {nr_modeled} pixels")
 
-        # find which pixels were modeled
-        border_coords_t=self.list_as_carg([Coord_t(*bc) for bc in border_coords] ,Coord_t)
-        self.c_funcs.ransac(border_coords_t, border_coords_l, self.ball_radius, self.min_dist,
-                     self.max_dist, self.max_iterations, self.confidence_threshold, False, byref(new_center_c))
-        new_center=[new_center_c.x,new_center_c.y]
-        indexes = self.list_as_carg([c_int(0)
-                                     for i in range(len(border_coords))])
-        nr_modeled = self.c_funcs.find_modeled_pixels(byref(new_center_c), byref(
-            new_center_c), self.max_dx, self.min_dist, self.max_dist, border_coords_t, border_coords_l, None, 0, indexes)
-        modeled_coords=[list(border_coords[i]) for i in indexes[:nr_modeled]]
-        print(f"modeled {nr_modeled} pixels")
-
-        # create circle overlay(s)
-        ransac_contour = make_circle(new_center, self.ball_radius)
-        ransac_tolerance = make_circle(new_center, self.ball_radius, [
-                                       self.ball_radius-self.min_dist, self.max_dist-self.ball_radius])
+            # create circle overlay(s)
+            ransac_contour = make_circle(new_center, self.ball_radius)
+            ransac_tolerance = make_circle(new_center, self.ball_radius, [
+                                        self.ball_radius-self.min_dist, self.max_dist-self.ball_radius])
         if len(border_coords) > 0:
             coope_center = coope_fit(border_coords)
             lsq_border_contour = make_circle(coope_center, self.ball_radius)
         else:
             lsq_border_contour = np.zeros_like(seg_mask)
-        
-        if len(modeled_coords)>0:
+
+        if len(border_coords) > 0 and len(modeled_coords) > 0:
             coope_center = coope_fit(modeled_coords)
             lsq_modeled_contour = make_circle(coope_center, self.ball_radius)
         else:
@@ -740,7 +752,7 @@ class RansacDetector(HSVDetector):
         # and parse it all to RGBA images
         ball_color = np.array(self.balls[0].high_sv_color_rgb())
         white_color = np.array([255, 255, 255])
-        modeled_color=np.array([255, 183, 0])
+        modeled_color = np.array([255, 183, 0])
         black_color = np.array([0, 0, 0])
         ransac_color = np.array([132, 184, 23])
         lsq_border_color = ransac_color+[-100, 60, 190]
@@ -751,8 +763,11 @@ class RansacDetector(HSVDetector):
         ransac_contour = BW_to_RGBA(ransac_contour, 1, ransac_color)
         ransac_tolerance_contour = BW_to_RGBA(
             ransac_tolerance, 1, ransac_color, 128)
-        lsq_modeled_contour=BW_to_RGBA(lsq_modeled_contour,1,modeled_color)
+        lsq_modeled_contour = BW_to_RGBA(lsq_modeled_contour, 1, modeled_color)
         lsq_border_contour = BW_to_RGBA(
             lsq_border_contour, 1, lsq_border_color)
-
-        return seg_mask_background, seg_mask_ball, border_mask, ransac_contour, ransac_tolerance_contour,lsq_modeled_contour, lsq_border_contour
+        self.lock.release()
+        while(self.frame_number == frame_start):
+            continue
+        modeled_l=nr_modeled if border_coords_l>0 else 0
+        return modeled_l, [seg_mask_background, seg_mask_ball, border_mask, ransac_contour, ransac_tolerance_contour, lsq_modeled_contour, lsq_border_contour]

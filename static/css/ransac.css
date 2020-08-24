@@ -1,0 +1,23 @@
+.container {
+    position: static;
+    height:420px
+}
+
+.container img {
+    position: absolute;
+    top: 0;
+    left: 20px;
+    width: 400px;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+}
+
+.container p {
+    position: relative;
+    top:400px;
+}
+
+.padded_left{
+    position: relative;
+    left: 20px;
+}
