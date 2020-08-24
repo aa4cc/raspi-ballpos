@@ -64,7 +64,7 @@
         }
 
         function fake_image_update() {
-            {%for image, label in images_n_labels[1:]%}
+            {%for image, label in images_n_labels%}
             $(".{{image}}").attr(
                 "src", "/static/{{image}}-0.png?time=" + new Date().getTime()
             )
@@ -125,8 +125,11 @@
         Confidence threshold:
         <input id="{{settings.ids[3]}}" value="{{settings.confidence_threshold}}" />
         <br>
-        Tolerance coeff min: <input id="{{settings.ids[4]}}" value="{{settings.tol_min}}" /> max: <input
-            id="{{settings.ids[5]}}" value="{{settings.tol_max}}" />
+        Downsampling:
+        <input id="{{settings.ids[4]}}" value="{{settings.downsample}}" />
+        <br>
+        Tolerance coeff min: <input id="{{settings.ids[5]}}" value="{{settings.tol_min}}" /> max: <input
+            id="{{settings.ids[6]}}" value="{{settings.tol_max}}" />
     </div>
     <script>
         let node;

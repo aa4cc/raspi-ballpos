@@ -696,7 +696,7 @@ class RansacDetector(HSVDetector):
         # prepare the variables
         image = np.array(image, order='C', copy=True)
         width, height = image.shape[:2]
-        seg_mask = np.empty(shape=image.shape[:2], dtype=np.uint8)
+        seg_mask = 250*np.ones(shape=image.shape[:2], dtype=np.uint8)
         border_mask = np.zeros_like(seg_mask)
         group_mask = np.ones_like(seg_mask)*255
         group_index_c = pointer(POINTER(c_int)())

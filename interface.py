@@ -444,7 +444,7 @@ def generate_images(detector):
     if center is None:
         return None
     image=getImage()
-    offset=detector.ball_radius*1.5
+    offset=detector.ball_radius*2
     w_low=max(0,int(center[0]-offset))
     w_high=min(image.shape[0],int(center[0]+offset))
 
@@ -473,8 +473,8 @@ def ransac_settings():
     if images is not None:
         filenames=save_images(images)
         checkbox_labels=["","Background mask", "Ball mask", "Border mask", "Ransac fit", "Ransac tolerance (\"modeled\" pixels)","LSQ (fit to RANSAC)","LSQ (fit to all border)"]
-        ids=["ids", "ball_radius", "max_iterations", "confidence_threshold", "tol_min", "tol_max"]
-        values=[ids, detector.ball_radius,detector.max_iterations,detector.confidence_threshold,detector.min_dist/detector.ball_radius,detector.max_dist/detector.ball_radius]
+        ids=["ids", "ball_radius", "max_iterations", "confidence_threshold", "downsample", "tol_min", "tol_max"]
+        values=[ids, detector.ball_radius,detector.max_iterations,detector.confidence_threshold,detector.downsample,detector.min_dist/detector.ball_radius,detector.max_dist/detector.ball_radius]
         settings=dict(zip(ids,values))
         return render_template('ransac.html',ball_nr=detector.number_of_objects,images_n_labels=list(zip(filenames,checkbox_labels)),settings=settings,nr_modeled=nr_modeled)
     else:
@@ -486,26 +486,32 @@ def change_value():
     id=request.args.get('id')
     value=request.args.get('value')
     # print(f"received {value}")
-    if '.' in value:
-        value=float(value)
-    else:
-        value=int(value)
-    if id=='tol_min':
-        id='min_dist'
-        value*=detector.ball_radius
-    elif id=='tol_max':
-        id='max_dist'
-        value*=detector.ball_radius
-    elif id=='ball_radius':
-        # print(f"min dist {detector.min_dist}, br {detector.ball_radius}")
-        detector.min_dist=detector.min_dist/detector.ball_radius*value
-        detector.max_dist=detector.max_dist/detector.ball_radius*value
-    # print(f"setting value {value}")
-    detector.__setattr__(id,value)
-    # detector.min_dist=1
-    nr_modeled,images=generate_images(detector)
-    save_images(images)
-    return jsonify(nr_modeled=nr_modeled)
+    try:
+        if '.' in value:
+            value=float(value)
+        else:
+            value=int(value)
+        if id=='tol_min':
+            id='min_dist'
+            value*=detector.ball_radius
+        elif id=='tol_max':
+            id='max_dist'
+            value*=detector.ball_radius
+        elif id=='ball_radius':
+            # print(f"min dist {detector.min_dist}, br {detector.ball_radius}")
+            detector.min_dist=detector.min_dist/detector.ball_radius*value
+            detector.max_dist=detector.max_dist/detector.ball_radius*value
+        # print(f"setting value {value}")
+        detector.__setattr__(id,value)
+        # detector.min_dist=1
+        nr_modeled,images=generate_images(detector)
+        save_images(images)
+        return jsonify(nr_modeled=nr_modeled)
+    except Exception as e:
+        print("Couldn't change settings: ")
+        print(e)
+        return jsonify(nr_modeled=[0 for _ in detector.nr_of_balls])
+
 
 def rotate(origin, point, angle):
     """
