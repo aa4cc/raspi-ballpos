@@ -107,8 +107,6 @@ def detector_funcs():
         c_float,  # max_dst
         POINTER(Coord_t),  # border_coords
         c_size_t,  # border_coords_l
-        POINTER(Coord_t),  # group_coords
-        c_size_t,  # gruop_coords_l
         POINTER(c_int)  # modeled_indexes
     ]
 
@@ -140,7 +138,8 @@ def detector_funcs():
         c_int,  # max_iter
         c_int,  # confidence_thrs
         c_bool,  # verbose
-        POINTER(Coord_t),  # best_model_ret
+        POINTER(Coord_t),  # best_model_ransac
+        POINTER(Coord_t),  # best_model_coope
     ]
 
     return funcs

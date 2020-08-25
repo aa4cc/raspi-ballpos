@@ -1,3 +1,5 @@
+#include "Coord_t.h"
+#include "coope_fit.h"
 #include "math.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -7,6 +9,9 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/types.h>
+
+// compile with cc -fPIC -shared -o ransac_detector.so ransac_detector.c -L.
+// -lcoope_fit -Wl,-rpath .
 
 // define structs
 typedef struct {
@@ -33,11 +38,6 @@ typedef struct {
   double s; // a fraction between 0 and 1
   double v; // a fraction between 0 and 1
 } hsv_t;
-
-typedef struct {
-  float x;
-  float y;
-} Coord_t;
 
 // define constants
 #define R 0
@@ -170,7 +170,7 @@ void *possibly_resize_ptr(void *ptr, size_t *ptr_size, size_t min_size,
 
 void *possibly_double_ptr_size(void *ptr, size_t *ptr_size, size_t min_size,
                                size_t type_size) {
-    // printf("%d vs %d\n",*ptr_size,min_size);
+  // printf("%d vs %d\n",*ptr_size,min_size);
   if (*ptr_size <= min_size) {
     // printf("incerasing\n");
     *ptr_size *= 2;
@@ -205,7 +205,7 @@ size_t get_ball_pixels(uint8_t *img, int width, int height,
   static size_t ball_pixels_al = 0;
   static int *ball_pixels = NULL;
 
-  int coords_len = 0;
+  int ball_pixel_l = 0;
   for (int y = 0; y < height; y = y + step) {
     for (int x = 0; x < width; x = x + step) {
       // set the pixel in segmentation mask to its corresponding ball (or NONE)
@@ -215,24 +215,25 @@ size_t get_ball_pixels(uint8_t *img, int width, int height,
       int ball_color = rgb_to_balls_map[color_index];
       mask[image_index(x, y)] = ball_color;
       if (ball_color != NONE) {
-        if (coords_len + 2 >= ball_pixels_al) {
+        // make sure enough space is available
+        if (ball_pixel_l + 2 >= ball_pixels_al) {
           ball_pixels_al = 2 * (ball_pixels_al + 1);
           ball_pixels = realloc(ball_pixels, 2 * ball_pixels_al * sizeof(int));
         }
-        // remember border pixels for later
-        ball_pixels[2 * coords_len] = x;
-        ball_pixels[2 * coords_len + 1] = y;
-        coords_len++;
+        // save the coords
+        ball_pixels[2 * ball_pixel_l] = x;
+        ball_pixels[2 * ball_pixel_l + 1] = y;
+        ball_pixel_l++;
       }
     }
   }
   *ball_pixels_ret = ball_pixels;
-  return coords_len;
+  return ball_pixel_l;
 }
 
 uint8_t *get_neighbour_values(uint8_t *segmentation_mask, int width, int height,
                               int x, int y, int step) {
-  static uint8_t neighbours[9];
+  static uint8_t neighbours[9]; // static to we can return it
   for (int dx = -1; dx <= 1; ++dx) {
     for (int dy = -1; dy <= 1; ++dy) {
       int x_index = x + dx * step;
@@ -309,26 +310,16 @@ size_t get_border_coords(uint8_t *segmentation_mask, int width, int height,
   // printf("before\n");
   if (!border_coords) {
     border_coords = malloc(64 * sizeof(int));
-    border_coords_al=64;
+    border_coords_al = 64;
   }
-  // border_coords = possibly_resize_ptr(border_coords, &border_coords_al,
-  //                                     sqrt(ball_pixel_coords_l),
-  //                                     sizeof(int));
-  // printf("after\n");
-  // if (border_coords_al < ball_pixel_coords_l) {
-  //   border_coords =
-  //       (int *)realloc(border_coords, 2 * ball_pixel_coords_l * sizeof(int));
-  //   border_coords_al = ball_pixel_coords_l;
-  // }
   // printf("before2\n");
   if (group_index_l < prev_pos_l) {
     // create index list for each new ball of length NEW_GROUP_LEN
-    group_index = (int **)realloc(group_index, prev_pos_l * sizeof(int *));
+    group_index = realloc(group_index, prev_pos_l * sizeof(int *));
     for (int i = group_index_l; i < prev_pos_l; ++i) {
       group_index[i] = malloc(NEW_GROUP_LEN * sizeof(int));
     }
-    group_index_als =
-        (size_t *)realloc(group_index_als, prev_pos_l * sizeof(size_t));
+    group_index_als = realloc(group_index_als, prev_pos_l * sizeof(size_t));
     for (int i = group_index_l; i < prev_pos_l; ++i) {
       group_index_als[i] = NEW_GROUP_LEN;
     }
@@ -338,7 +329,7 @@ size_t get_border_coords(uint8_t *segmentation_mask, int width, int height,
   memset(group_index_ls, 0, prev_pos_l * sizeof(size_t));
   // printf("after2\n");
 
-  size_t border_index = 0;
+  size_t border_coords_l = 0;
   // printf("before3\n");
   for (int i = 0; i < ball_pixel_coords_l; ++i) {
     int x = ball_pixel_coords[2 * i];
@@ -350,10 +341,11 @@ size_t get_border_coords(uint8_t *segmentation_mask, int width, int height,
     if (is_border_pixel(neighbours)) { // border pixel
       // printf("is border_pixel\n");
       // increase array size if necessary and copy x,y to boorder_coords
-      border_coords = possibly_double_ptr_size(
-          border_coords, &border_coords_al, 2 * border_index + 2, sizeof(int));
-      border_coords[2 * border_index] = x;
-      border_coords[2 * border_index + 1] = y;
+      border_coords =
+          possibly_double_ptr_size(border_coords, &border_coords_al,
+                                   2 * border_coords_l + 2, sizeof(int));
+      border_coords[2 * border_coords_l] = x;
+      border_coords[2 * border_coords_l + 1] = y;
       // printf("hh\n");
       if (border_mask) {
         border_mask[image_index(x, y)] = 1;
@@ -378,15 +370,7 @@ size_t get_border_coords(uint8_t *segmentation_mask, int width, int height,
               group_index[ball_index], group_index_als + ball_index,
               *this_group_index, sizeof(int));
 
-          // if (group_index_als[ball_index] <= *this_group_index) {
-          //   group_index_als[ball_index] *= 2;
-          //   group_index[ball_index] = realloc(
-          //       group_index[ball_index],
-          //       group_index_als[ball_index] *
-          //       sizeof(group_index[ball_index]));
-          // }
-
-          group_index[ball_index][*this_group_index] = border_index;
+          group_index[ball_index][*this_group_index] = border_coords_l;
           if (group_mask) {
             // if more balls are possible at the same place, this will only save
             // the last one but oh well...
@@ -396,7 +380,7 @@ size_t get_border_coords(uint8_t *segmentation_mask, int width, int height,
         }
       }
       // printf("after5\n");
-      border_index++;
+      border_coords_l++;
     }
   }
 
@@ -404,7 +388,7 @@ size_t get_border_coords(uint8_t *segmentation_mask, int width, int height,
   *group_index_ret = group_index;
   *group_index_ls_ret = group_index_ls;
   *border_coords_ret = border_coords;
-  return border_index;
+  return border_coords_l;
 }
 
 int rand_lim(int limit) {
@@ -428,17 +412,18 @@ void circle_intersections(int x0, int y0, int r0, int x1, int y1, int r1,
   /* finds intersections of the two circles specified
  https://stackoverflow.com/questions/55816902/finding-the-intersection-of-two-circles
  (adapted for c) circle 1: (x0, y0), radius r0 circle 2: (x1, y1), radius r1*/
-  float d = distance_f2(x0, y0, x1, y1);
+  float d2 = distance_f2(x0, y0, x1, y1);
 
-  bool circles_too_far = d > r0 + r1;
-  bool one_circle_within_other = d < abs(r0 - r1);
-  bool coincident_circles = d == 0 && r0 == r1;
+  bool circles_too_far = d2 > pow(r0 + r1, 2);
+  bool one_circle_within_other = d2 < pow(r0 - r1, 2);
+  bool coincident_circles = d2 == 0 && r0 == r1;
   // points too close to each other to reliably estimate the circle
   // as a rule of thumb, we want them at least 20 deg apart
-  bool too_close_for_estimate = d < r0 / 3;
+  bool too_close_for_estimate = d2 < pow(r0 / 3, 2);
 
   if (!circles_too_far && !one_circle_within_other && !coincident_circles &&
       !too_close_for_estimate) {
+    float d = sqrt(d2);
     float a = (r0 * r0 - r1 * r1 + d * d) / (2 * d);
     float h = sqrt(r0 * r0 - a * a);
     float x2 = x0 + a * (x1 - x0) / d;
@@ -519,29 +504,26 @@ void ransac(Coord_t *border_coords, int border_coords_l, float r,
   }
 }
 
+bool in_group(Coord_t *model, Coord_t *previous_center, float max_dx2,
+              float max_dist) {
+  // decides whether all modeled pixels can by found in previously filtered
+  // group or it is necessary to look in all border coords
+  bool new_center_close = sqrt(distance_coords2(model, previous_center)) <
+                          (sqrt(max_dx2) - max_dist);
+  return valid_coord(*previous_center) && new_center_close;
+}
+
 // returns the length of modeled indexes
 size_t find_modeled_pixels(Coord_t *model, Coord_t *previous_center,
                            float max_dx2, float min_dist, float max_dist,
-                           Coord_t *border_coords, size_t border_coords_l,
-                           Coord_t *group_coords, size_t group_coords_l,
+                           Coord_t *set_to_check, size_t set_length,
                            int *modeled_indexes) {
   // check if it is possible to only search in group coords
-  memset(modeled_indexes, 0, border_coords_l * sizeof(int));
-  bool new_center_close = sqrt(distance_coords2(model, previous_center)) <
-                          (sqrt(max_dx2) - max_dist);
+  memset(modeled_indexes, 0, set_length * sizeof(int));
   size_t modeled_nr = 0;
-  int set_length = 0;
-  Coord_t *set_to_check = NULL;
-  if (valid_coord(*previous_center) && new_center_close) {
-    set_to_check = group_coords;
-    set_length = group_coords_l;
-  } else {
-    set_to_check = border_coords;
-    set_length = border_coords_l;
-  }
   for (int i = 0; i < set_length; ++i) {
     float distance2 = distance_coords2(set_to_check + i, model);
-    if (distance2 > min_dist * min_dist && distance2 < max_dist * max_dist) {
+    if (distance2 > pow(min_dist, 2) && distance2 < pow(max_dist, 2)) {
       modeled_indexes[modeled_nr++] = i;
     }
   }
@@ -550,8 +532,8 @@ size_t find_modeled_pixels(Coord_t *model, Coord_t *previous_center,
 
 void remove_pixels(Coord_t *border_coords, size_t border_coords_l,
                    int *group_indexes, size_t group_indexes_l,
-                   int *modeled_indexes, size_t modeled_indexes_l) {
-  bool only_group = modeled_indexes_l <= group_indexes_l;
+                   int *modeled_indexes, size_t modeled_indexes_l,
+                   bool only_group) {
   for (int i = 0; i < modeled_indexes_l; ++i) {
     Coord_t *modeled_pixel_address;
     if (only_group) {
@@ -562,6 +544,20 @@ void remove_pixels(Coord_t *border_coords, size_t border_coords_l,
     modeled_pixel_address->x = NAN;
     modeled_pixel_address->y = NAN;
   }
+}
+
+Coord_t lsq_on_modeled(Coord_t *coords, size_t coords_l, int *modeled_indexes,
+                       size_t modeled_indexes_l) {
+  static Coord_t *modeled = NULL;
+  static size_t modeled_al = 0;
+  modeled = possibly_resize_ptr(modeled, &modeled_al, modeled_indexes_l,
+                                sizeof(Coord_t));
+
+  for (int i = 0; i < modeled_indexes_l; ++i) {
+    // printf("[%f, %f]-", coords[i].x, coords[i].y);
+    modeled[i] = coords[modeled_indexes[i]];
+  }
+  return coope_fit(modeled, (int)modeled_indexes_l);
 }
 
 size_t filter_group_coords(Coord_t *border_coords, size_t border_coords_l,
@@ -578,6 +574,7 @@ size_t filter_group_coords(Coord_t *border_coords, size_t border_coords_l,
   } else {
     for (int i = 0; i < border_coords_l; ++i) {
       Coord_t group_pixel = border_coords[i];
+      // printf("[%f, %f]\n", border_coords[i].x, border_coords[i].y);
       if (valid_coord(group_pixel)) {
         filtered_coords_ret[j++] = group_pixel;
       }
@@ -588,35 +585,24 @@ size_t filter_group_coords(Coord_t *border_coords, size_t border_coords_l,
 
 void parse_to_coords(int *coords, size_t coords_l, Coord_t *coords_ret) {
   for (int i = 0; i < coords_l; ++i) {
-    coords_ret[i].x = coords[2 * i];
-    coords_ret[i].y = coords[2 * i + 1];
+    coords_ret[i].x = (float)coords[2 * i];
+    coords_ret[i].y = (float)coords[2 * i + 1];
   }
 }
 
 void detect_ball(Coord_t *border_coords, size_t border_coords_l,
                  int *group_indexes, size_t group_indexes_l, Coord_t *prev_pos,
-                 Coord_t *center_ret, float max_dx2, float r, float min_dist,
+                 Coord_t *center_ransac, Coord_t*center_coope, float max_dx2, float r, float min_dist,
                  float max_dist, int max_iter, int confidence_thrs,
                  bool verbose) {
   // declare statics and make sure they have enough memory
   static int *modeled_indexes = NULL;
   static size_t modeled_indexes_al = 0;
   static Coord_t *filtered_coords = NULL;
-  static int filtered_coords_al = 0;
+  static size_t filtered_coords_al = 0;
 
-  // for (int i = 0; i < group_indexes_l; ++i) {
-  //   printf("%d\n",group_indexes[i]);
-  // }
-
-  if (modeled_indexes_al < border_coords_l) {
-    modeled_indexes_al = border_coords_l;
-    modeled_indexes = realloc(modeled_indexes, border_coords_l * sizeof(int));
-  }
-  if (filtered_coords_al < border_coords_l) {
-    filtered_coords_al = border_coords_l;
-    filtered_coords =
-        realloc(filtered_coords, filtered_coords_al * sizeof(Coord_t));
-  }
+  filtered_coords = possibly_resize_ptr(filtered_coords, &filtered_coords_al,
+                                        border_coords_l, sizeof(Coord_t));
 
   // find the ball and remove old pixels
   // it is not necessary to look among all the pixels, if previous position was
@@ -624,25 +610,50 @@ void detect_ball(Coord_t *border_coords, size_t border_coords_l,
   size_t filtered_coords_l =
       filter_group_coords(border_coords, border_coords_l, group_indexes,
                           group_indexes_l, filtered_coords);
-  // for (int i = 0; i < group_indexes_l; ++i) {
+  // for (int i = 0; i < filtered_coords_l; ++i) {
   //   printf("[%f, %f]\n",filtered_coords[i].x,filtered_coords[i].y);
   // }
 
   ransac(filtered_coords, filtered_coords_l, r, min_dist, max_dist, max_iter,
-         confidence_thrs, verbose, center_ret);
+         confidence_thrs, verbose, center_ransac);
 
-  size_t modeled_indexes_l = find_modeled_pixels(
-      center_ret, prev_pos, max_dx2, min_dist, max_dist, border_coords,
-      border_coords_l, filtered_coords, filtered_coords_l, modeled_indexes);
-  remove_pixels(border_coords, border_coords_l, group_indexes, group_indexes_l,
-                modeled_indexes, modeled_indexes_l);
+  if (valid_coord(*center_ransac)) {
+  // find out whether it is necessary to look in previously created group or in
+  // all border coords
+  bool only_group = in_group(center_ransac, prev_pos, max_dx2, max_dist);
+  Coord_t *modeled_set;
+  size_t modeled_set_l;
+  if (only_group) {
+    modeled_set = filtered_coords;
+    modeled_set_l = filtered_coords_l;
+  } else {
+    modeled_set = border_coords;
+    modeled_set_l = border_coords_l;
+  }
+  modeled_indexes = possibly_resize_ptr(modeled_indexes, &modeled_indexes_al,
+                                        modeled_set_l, sizeof(int));
+  if (modeled_indexes_al < modeled_set_l) {
+    modeled_indexes_al = modeled_set_l;
+    modeled_indexes =
+        realloc(modeled_indexes, modeled_indexes_al * sizeof(int));
+  }
+
+    size_t modeled_indexes_l =
+        find_modeled_pixels(center_ransac, prev_pos, max_dx2, min_dist, max_dist,
+                            modeled_set, modeled_set_l, modeled_indexes);
+    *center_coope = lsq_on_modeled(modeled_set, modeled_indexes_l,
+                                 modeled_indexes, modeled_indexes_l);
+    remove_pixels(border_coords, border_coords_l, group_indexes,
+                  group_indexes_l, modeled_indexes, modeled_indexes_l,
+                  only_group);
+  }
 }
 
 void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
                   int height, int step, Coord_t *prev_pos, size_t prev_pos_l,
                   float max_dx2, float r, float min_dist, float max_dist,
                   int max_iter, int confidence_thrs, bool verbose,
-                  Coord_t *centers) {
+                  Coord_t *centers_ransac, Coord_t*centers_coope) {
   for (int l = 0; l < 1; ++l) { // for benchmarking
     static uint8_t *segmentation_mask = NULL;
     static size_t segmentation_mask_al = 0;
@@ -698,9 +709,9 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
         continue;
       }
       detect_ball(border_coords, border_coords_l, group_index[i],
-                  group_index_ls[i], prev_pos + i, centers + i, max_dx2, r,
+                  group_index_ls[i], prev_pos + i, centers_ransac + i,centers_coope+i, max_dx2, r,
                   min_dist, max_dist, max_iter, confidence_thrs, verbose);
-      if (!valid_coord(centers[i])) {
+      if (!valid_coord(centers_ransac[i])) {
         skipped[i] = true;
       }
     }
@@ -709,10 +720,10 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
       if (!skipped[i]) {
         continue;
       }
-
       detect_ball(border_coords, border_coords_l, NULL, 0, prev_pos + i,
-                  centers + i, max_dx2, r, min_dist, max_dist, max_iter,
+                  centers_ransac + i,centers_coope+i, max_dx2, r, min_dist, max_dist, max_iter,
                   confidence_thrs, verbose);
     }
   }
+  // exit(108);
 }
