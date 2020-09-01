@@ -14,7 +14,7 @@ import pickle
 import sys
 # from ransac import ransac
 import ransac_detector_ctypes
-from ransac_detector_ctypes import Coord_t, Ball_t
+from ransac_detector_ctypes import Coord_t, Ball_t, Coords_t, Indexes_t, IntCoords_t, IntCoord_t
 import threading
 
 sys.path
@@ -572,8 +572,10 @@ class MultiColorDetector(HSVDetector):
 
 class RansacDetector(HSVDetector):
     def __init__(self, **kwargs):
-        # print(kwargs)
-        self.number_of_objects = kwargs.get("number_of_objects", 1)
+        nr_of_objects = kwargs.get("number_of_objects", [1])
+        l = [[i for _ in range(n)] for i, n in enumerate(nr_of_objects)]
+        self.ball_colors = [item for sublist in l for item in sublist]
+        self.number_of_objects = np.sum(nr_of_objects)
         self.ball_radius = kwargs.get("ball_diameter_pixels", 40)/2
         self.max_iterations = kwargs.get("max_iterations", 40)
         self.confidence_threshold = kwargs.get("confidence_threshold", 160)
@@ -584,6 +586,11 @@ class RansacDetector(HSVDetector):
         self.max_dist = border_tolerance_coeffs[1]*self.ball_radius
 
         HSVDetector.__init__(self, **kwargs)
+
+        if len(self.balls) != len(nr_of_objects):
+            raise ValueError(
+                "'number_of_objects' specified in the JSON config file must be a list of length equal to the number of colors (specified by 'ball_colors')!")
+
         self.c_funcs = ransac_detector_ctypes.detector_funcs()
         self.init_table()
         self.centers_c_ransac = self.list_as_carg(
@@ -599,22 +606,21 @@ class RansacDetector(HSVDetector):
     # necessary function - it initializes the RGB-HSV color table that is used for detection
     def init_table(self):
         colors = [ball.hsv_specs() for ball in self.balls]
-        if len(colors) != 1:
-            raise NotImplementedError(
-                "Only one color supported in RANSAC at the moment")
-
-        # convert from floats to int
-        h_mid, h_tol, s_min, v_min = colors[0]
-        h_min = (h_mid-h_tol)*360
-        h_max = (h_mid+h_tol)*360
-        if h_min < 0:
-            h_min += 360
-            h_max += 360
-        # s_min *= 100
-        # v_min *= 100
+        ball_ts = []
+        for color in colors:
+            # convert from floats to int
+            h_mid, h_tol, s_min, v_min = color
+            h_min = (h_mid-h_tol)*360
+            h_max = (h_mid+h_tol)*360
+            if h_min < 0:
+                h_min += 360
+                h_max += 360
+            # s_min *= 100
+            # v_min *= 100
+            ball_ts.append(Ball_t(h_min, h_max, s_min, v_min))
         self.rgb2balls = np.empty(shape=(256, 256, 256), dtype=np.uint8)
         self.c_funcs.init_table(self.rgb2balls, self.list_as_carg(
-            [Ball_t(h_min, h_max, s_min, v_min)]), len(colors))
+            ball_ts), len(colors))
 
     def list_as_carg(self, l, list_type=None):
         try:
@@ -640,14 +646,17 @@ class RansacDetector(HSVDetector):
 
             if image is not None:
                 # parse (x,y,theta) to (x,y) and None to np.nan (for numba)
-                previous_positions = [Coord_t(*center[:2]) if center is not None else Coord_t(
+                prev_pos_c = [Coord_t(*center[:2]) if center is not None else Coord_t(
                     np.nan, np.nan) for center in self.centers]
+                previous_positions=Coords_t(len(prev_pos_c),len(prev_pos_c),self.list_as_carg(prev_pos_c))
+                
                 verbose = False
+                ball_colors_c = (c_int*len(self.ball_colors)
+                                 )(*self.ball_colors)
                 self.lock.acquire()
                 self.c_funcs.detect_balls(
-                    self.rgb2balls, image, *image.shape[:2], self.downsample, self.list_as_carg(
-                        previous_positions), len(previous_positions), self.max_dx**2,
-                    self.ball_radius, self.min_dist, self.max_dist, self.max_iterations, self.confidence_threshold, verbose, self.centers_c_ransac,self.centers_c_coope)
+                    self.rgb2balls, image, *image.shape[:2], self.downsample, previous_positions, ball_colors_c, self.max_dx**2,
+                    self.ball_radius, self.min_dist, self.max_dist, self.max_iterations, self.confidence_threshold, verbose, self.centers_c_ransac, self.centers_c_coope)
                 self.lock.release()
                 # parse the result back
                 self.centers = [None if np.isnan(center.x) else (
@@ -704,18 +713,18 @@ class RansacDetector(HSVDetector):
         group_mask = np.ones_like(seg_mask)*255
         group_index_c = pointer(POINTER(c_int)())
         group_index_ls = POINTER(c_size_t)()
-        ball_coords_c = POINTER(c_int)()
+        ball_coords_c = pointer(POINTER(c_int)())
         border_coords_c = POINTER(c_int)()
         previous_pos = [Coord_t(np.nan, np.nan)]
         new_center_c = Coord_t(np.nan, np.nan)
+        ball_coords_ls=self.list_as_carg([c_size_t(0) for i in range(max(self.ball_colors)+1)])
 
         # get segmentation
-        ball_coords_c = POINTER(c_int)()
-        ball_coords_l = self.c_funcs.get_ball_pixels(
-            image, width, height, self.rgb2balls, self.downsample, seg_mask, byref(ball_coords_c))
-        # print(f"found {ball_coords_l} ball coords")
-        # get border
-        border_coords_l = self.c_funcs.get_border_coords(seg_mask, width, height, ball_coords_c, ball_coords_l, self.list_as_carg(previous_pos), len(
+        self.c_funcs.get_ball_pixels(
+            image, width, height, self.rgb2balls, self.downsample, seg_mask, byref(ball_coords_c),ball_coords_ls)
+
+        # get border (for the color specified by index)
+        border_coords_l = self.c_funcs.get_border_coords(seg_mask, width, height, ball_coords_c[index], ball_coords_ls[index], self.list_as_carg(previous_pos), len(
             previous_pos), self.downsample, self.max_dx**2, border_mask, group_mask, byref(group_index_c), byref(group_index_ls), byref(border_coords_c))
         # print(f"found {border_coords_l} border coords")
         border_coords = np.array([[border_coords_c[2*i], border_coords_c[2*i+1]]
@@ -756,7 +765,7 @@ class RansacDetector(HSVDetector):
             lsq_modeled_contour = np.zeros_like(seg_mask)
 
         # and parse it all to RGBA images
-        ball_color = np.array(self.balls[0].high_sv_color_rgb())
+        ball_color = np.array(self.balls[index].high_sv_color_rgb())
         white_color = np.array([255, 255, 255])
         modeled_color = np.array([255, 183, 0])
         black_color = np.array([0, 0, 0])

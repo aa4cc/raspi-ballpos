@@ -18,6 +18,33 @@ class Coord_t(ctypes.Structure):
                 ("y", c_float)]
 
 
+class Coords_t(ctypes.Structure):
+    # this class is used to interface with RANSAC C
+    _fields_ = [("length", c_size_t),
+                ("allocated", c_size_t),
+                ("coords", POINTER(Coord_t))]
+
+
+class IntCoord_t(ctypes.Structure):
+    # this class is used to interface with RANSAC C
+    _fields_ = [("x", c_int),
+                ("y", c_int)]
+
+
+class IntCoords_t(ctypes.Structure):
+    # this class is used to interface with RANSAC C
+    _fields_ = [("length", c_size_t),
+                ("allocated", c_size_t),
+                ("coords", POINTER(Coord_t))]
+
+
+class Indexes_t(ctypes.Structure):
+    # this class is used to interface with RANSAC C
+    _fields_ = [("length", c_size_t),
+                ("allocated", c_size_t),
+                ("indexes", POINTER(c_int))]
+
+
 def wrapped_ndptr(*args, **kwargs):
     base = ndpointer(*args, **kwargs)
 
@@ -43,12 +70,13 @@ def detector_funcs():
                   flags='C_CONTIGUOUS'),  # img
         c_int,  # width
         c_int,  # height
+        c_int,  # number of colors
         ndpointer(dtype=np.uint8, ndim=3,
                   flags='C_CONTIGUOUS'),  # table
         c_int,  # step
         ndpointer(dtype=np.uint8, ndim=2,
                   flags='C_CONTIGUOUS'),  # mask (empty)
-        POINTER(POINTER(c_int))  # ball coords length (len([x1,y1,x2,y2])=2)
+        POINTER(POINTER(IntCoords_t)),  # ball_pixels
     ]
 
     funcs.get_segmentation_mask.argtypes = [
@@ -58,38 +86,28 @@ def detector_funcs():
         c_int,  # height
         ndpointer(dtype=np.uint8, ndim=2,
                   flags='C_CONTIGUOUS'),  # mask
-        POINTER(Ball_t), 
+        POINTER(Ball_t),
     ]
 
-    # length of the ball coords for parsing
-    funcs.get_segmentation_mask.restype = c_size_t
-
-    funcs.get_border_coords.argtypes = [
+    funcs.get_border.argtypes = [
         ndpointer(dtype=np.uint8, ndim=2,
                   flags='C_CONTIGUOUS'),  # seg_mask (full)
         c_int,  # width
         c_int,  # height
-        POINTER(c_int),  # ball_pixel_coords
-        c_size_t,  # ball_pixel_coords_l
-        POINTER(Coord_t),  # previous_positions
-        c_size_t,  # previous_pos_l
+        POINTER(IntCoords_t),  # ball_pixel_coords
+        POINTER(Coords_t),  # previous_positions
         c_int,  # step
-        c_float,  # max_dx
+        c_float,  # max_dx2
         ndpointer(dtype=np.uint8, ndim=2,
                   flags='C_CONTIGUOUS'),  # border_mask (empty)
         ndpointer(dtype=np.uint8, ndim=2,
                   flags='C_CONTIGUOUS'),  # group (empty)
-        POINTER(POINTER(POINTER(c_int))),  # group_index_ret
-        POINTER(POINTER(c_size_t)),  # group_index_ls_ret
-        POINTER(POINTER(c_int)),  # border_coords_ret
+        POINTER(POINTER(Indexes_t)),  # groups
+        POINTER(IntCoords_t),  # border
     ]
 
-    # length of the border coords for parsing
-    funcs.get_border_coords.restype = c_size_t
-
     funcs.ransac.argtypes = [
-        POINTER(Coord_t),  # border_coords
-        c_size_t,  # border_coords_l
+        POINTER(IntCoords_t),  # border_coords
         c_float,  # r
         c_float,  # min_dst
         c_float,  # max_dst
@@ -102,23 +120,18 @@ def detector_funcs():
     funcs.find_modeled_pixels.argtypes = [
         POINTER(Coord_t),  # model
         POINTER(Coord_t),  # previous_center
-        c_float,  # max_dx
-        c_float,  # min_dst
-        c_float,  # max_dst
-        POINTER(Coord_t),  # border_coords
-        c_size_t,  # border_coords_l
-        POINTER(c_int)  # modeled_indexes
+        c_float,  # max_dx2
+        c_float,  # min_dist
+        c_float,  # max_dist
+        POINTER(Indexes_t),  # border
+        POINTER(Indexes_t)  # modeled_indexes
     ]
 
-    funcs.find_modeled_pixels.restype = c_size_t
-
     funcs.remove_pixels.argtypes = [
-        POINTER(Coord_t),  # border_coords
-        c_size_t,  # l
-        POINTER(c_int),  # group_indexes
-        c_size_t,  # l
-        POINTER(c_int),  # modeled_indexes
-        c_size_t  # l
+        POINTER(IntCoords_t),  # border_coords
+        POINTER(Indexes_t),  # group_indexes
+        POINTER(Indexes_t),  # modeled_indexes
+        c_bool  # only group
     ]
 
     funcs.detect_balls.argtypes = [
@@ -129,8 +142,8 @@ def detector_funcs():
         c_int,  # width
         c_int,  # height
         c_int,  # step
-        POINTER(Coord_t),  # previous_positions
-        c_size_t,  # previous_pos_l
+        POINTER(Coords_t),  # previous_positions
+        POINTER(c_int),  # ball colors
         c_float,  # max_dx
         c_float,  # r
         c_float,  # min_dst
