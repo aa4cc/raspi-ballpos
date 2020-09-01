@@ -35,7 +35,7 @@ class IntCoords_t(ctypes.Structure):
     # this class is used to interface with RANSAC C
     _fields_ = [("length", c_size_t),
                 ("allocated", c_size_t),
-                ("coords", POINTER(Coord_t))]
+                ("coords", POINTER(IntCoord_t))]
 
 
 class Indexes_t(ctypes.Structure):
@@ -76,7 +76,7 @@ def detector_funcs():
         c_int,  # step
         ndpointer(dtype=np.uint8, ndim=2,
                   flags='C_CONTIGUOUS'),  # mask (empty)
-        POINTER(POINTER(IntCoords_t)),  # ball_pixels
+        POINTER(IntCoords_t),  # ball_pixels
     ]
 
     funcs.get_segmentation_mask.argtypes = [
@@ -119,11 +119,10 @@ def detector_funcs():
 
     funcs.find_modeled_pixels.argtypes = [
         POINTER(Coord_t),  # model
-        POINTER(Coord_t),  # previous_center
         c_float,  # max_dx2
         c_float,  # min_dist
         c_float,  # max_dist
-        POINTER(Indexes_t),  # border
+        POINTER(IntCoords_t),  # border
         POINTER(Indexes_t)  # modeled_indexes
     ]
 

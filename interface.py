@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # from numba import jit
+from ctypes import byref
+from ransac_detector_ctypes import Ball_t
 import lamp
 import processor
 import math
@@ -156,10 +158,10 @@ def image(object=None, type=None):
         return "Not loaded yet"
     if len(image.shape) == 3:
         # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    # _, buffer = cv2.imencode('.png', image)
-        pil_image=Image.fromarray(image)
-        byteIO=BytesIO()
-        pil_image.save(byteIO,format='PNG')
+        # _, buffer = cv2.imencode('.png', image)
+        pil_image = Image.fromarray(image)
+        byteIO = BytesIO()
+        pil_image.save(byteIO, format='PNG')
     return responseImage(byteIO.getvalue())
 
 
@@ -196,14 +198,14 @@ def wb_value():
     if image is None:
         abort(404)
         return "Not loaded yet"
-    image=np.array(image)
+    image = np.array(image)
     pt1 = tuple(int(v/2-50) for v in app.params["resolution"])
     pt2 = tuple(int(v/2+50) for v in app.params["resolution"])
-    [b,g,r]=np.dsplit(image,image.shape[-1])
+    [b, g, r] = np.dsplit(image, image.shape[-1])
     # print(b.shape)
     #jsonify(cv2.mean(image[pt1[0]:pt2[0], pt1[1]:pt2[1], :]))
     # print((list(map(float(np.mean([image[:][:][i] for i in range(3)], axis=0))))))
-    return jsonify([np.mean(b),np.mean(g),np.mean(r)])
+    return jsonify([np.mean(b), np.mean(g), np.mean(r)])
 
 
 @app.route('/wb/value/<int:a>,<int:b>')
@@ -211,7 +213,7 @@ def wb_value():
 @app.route('/wb/value/<int:a>,<float:b>')
 @app.route('/wb/value/<float:a>,<float:b>')
 def wb_set(a, b):
-    print(a,b)
+    print(a, b)
     # image_wb()
     app.camera.awb_gains = (a, b)
     return "OK"
@@ -219,8 +221,7 @@ def wb_set(a, b):
 
 @app.route('/image/wb')
 def image_wb():
-#     image = getImage("processor", "centers")
-
+    #     image = getImage("processor", "centers")
 
     pt1 = tuple(int(v/2-50) for v in app.params["resolution"])
     pt2 = tuple(int(v/2+50) for v in app.params["resolution"])
@@ -228,9 +229,9 @@ def image_wb():
     im = getImage()
     if im is None:
         abort(404)
-    pil_image=Image.fromarray(im)
-    byteIO=BytesIO()
-    pil_image.save(byteIO,format='PNG')
+    pil_image = Image.fromarray(im)
+    byteIO = BytesIO()
+    pil_image.save(byteIO, format='PNG')
     return responseImage(byteIO.getvalue())
 
 
@@ -241,12 +242,14 @@ def get_hsv_detector():
         return "No detector registered!"
     for used_detector in app.processor.detectors:
         # type didn't work for some reason...
-        used_str=str(used_detector)
-        if used_str == "MultiColorDetector" or used_str=='RansacDetector':
+        used_str = str(used_detector)
+        if used_str == "MultiColorDetector" or used_str == 'RansacDetector':
             return app.processor.getDetector(used_detector.name)
     return "This webpage only works if you're using the MultiDetector..."
 
 # main ball_colors UI webpage, computes some statistics, prepares files for other functions and creates the website itself
+
+
 @app.route('/ball_colors')
 def ball_colors():
     # check if everything has been loaded
@@ -277,7 +280,7 @@ def ball_colors():
             test_iterations = 5
     for i in range(test_iterations):
         centers.append(app.processor.centers)
-        while app.processor.frame_number == frame_number: #wait for next frame
+        while app.processor.frame_number == frame_number:  # wait for next frame
             continue
         frame_number = app.processor.frame_number
 
@@ -309,26 +312,27 @@ def ball_colors():
         ball_center_stds = [(np.std(x_coordinates[i]), np.std(
             y_coordinates[i]), np.std(thetas[i])) for i in range(len(balls))]
         percentages = [100*ball_centers_found[i] /
-                    test_iterations for i in range(len(balls))]
+                       test_iterations for i in range(len(balls))]
 
-    
     # save images for website
-    pil_image=Image.fromarray(im)
+    pil_image = Image.fromarray(im)
     # pil_image.save('static/imageBRG.png')
     # pil_image=pil_image.convert('BGR;16')
     pil_image.save('static/image.png')
     # cv2.imwrite('static/imageBRG.png', im)
-    
+
     # im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
     # cv2.imwrite('static/image.png', im)
     # im = cv2.cvtColor(im, cv2.COLOR_BGR2HSV)
     # pil_image.save('static/imageBRG.png')
-    pil_image=pil_image.convert('HSV')
+    pil_image = pil_image.convert('HSV')
     np.save('static/image_hsv', np.array(pil_image))
 
     return render_template('ball_colors.html', balls=MultiDetector.balls, found=ball_centers_found, test_iterations=test_iterations, means=ball_center_means, percentages=percentages, stds=ball_center_stds, int=int, len=len)
 
 # receives x,y coordinates and responds with picture color in RGB at that position
+
+
 @app.route('/ball_colors/color')
 def color():
     try:
@@ -360,30 +364,32 @@ It is still necessary to reinit the table in C, preferably using '/ball_colors/s
 '''
 
 # @jit(nopython=True, cache=True)
-from ransac_detector_ctypes import Ball_t
-from ctypes import byref
+
+
 def compute_mask(im, detector, ball_t):
-    image=getImage()
-    mask=np.zeros(shape=tuple(image.shape[:2]),dtype=np.uint8)
+    image = getImage()
+    mask = np.zeros(shape=tuple(image.shape[:2]), dtype=np.uint8)
     # print(mask.shape)
-    if isinstance(detector,RansacDetector):
-        detector.c_funcs.get_segmentation_mask(im,*image.shape[:2],mask,byref(ball_t))
+    if isinstance(detector, RansacDetector):
+        detector.c_funcs.get_segmentation_mask(
+            im, *image.shape[:2], mask, byref(ball_t))
     else:
         print("This detector does not support segmentation mask in browser, sorry!")
     return mask
 
+
 @app.route('/ball_colors/limits')
 def limits():
-    h_mod=256 #180
+    h_mod = 256  # 180
     try:
         formatted = (request.args.get('formatted'))
         tolerance = int(request.args.get('tolerance'))
         index = int(request.args.get('index'))
         m = re.match(r'HSV\((.*),(.*),(.*)\)', formatted)
-        h = float(m.group(1))*h_mod #supplied as float in [0,1]
-        #tolerance /= 2  # from 360 to 180
-        s = int(m.group(2)) #supplied as int in [0,255]
-        v = int(m.group(3)) #supplied as int in [0,255]
+        h = float(m.group(1))*h_mod  # supplied as float in [0,1]
+        # tolerance /= 2  # from 360 to 180
+        s = int(m.group(2))  # supplied as int in [0,255]
+        v = int(m.group(3))  # supplied as int in [0,255]
     except:
         print("Error formatting at /limits, received: formatted: {}, tolerance: {}, index: {}".format(
               formatted, request.args.get('tolerance'), request.args.get('index')))
@@ -412,7 +418,7 @@ def limits():
 
     # start=time.time()
 
-    mask=compute_mask(im, MultiDetector, Ball_t(h_min,h_max,s,v))
+    mask = compute_mask(im, MultiDetector, Ball_t(h_min, h_max, s, v))
 
     # print(compute_mask.inspect_types())
     # print(f"Took {time.time()-start}")
@@ -426,6 +432,8 @@ def colorpicker_plugin(path):
     return send_from_directory('colorpicker-master', path)
 
 # used to save new settings
+
+
 @app.route('/ball_colors/set_colors')
 def set_colors():
     MultiDetector = get_hsv_detector()
@@ -435,82 +443,101 @@ def set_colors():
     MultiDetector.save_color_settings()
     return "OK"
 
+
 def generate_images(detector):
-    if not isinstance(detector,RansacDetector):
+    if not isinstance(detector, RansacDetector):
         return "This page only works with RansacDetector"
-    centers=detector.centers
-    center=centers[0]
-    # print(center)
-    if center is None:
-        return None
-    image=getImage()
-    offset=detector.ball_radius*2
-    w_low=max(0,int(center[0]-offset))
-    w_high=min(image.shape[0],int(center[0]+offset))
+    images = []
+    nrs_found = []
+    nrs_modeled = []
+    for i, center in enumerate(detector.centers):
+        print(center)
+        image = getImage()
+        if center is None:
+            images.append([np.zeros_like(image) for i in range(10)])
+            nrs_found.append(0)
+            nrs_modeled.append(0)
+        else:
+            offset = detector.ball_radius*2
+            w_low = max(0, int(center[0]-offset))
+            w_high = min(image.shape[0], int(center[0]+offset))
 
-    h_low=max(0,int(center[1]-offset))
-    h_high=min(image.shape[1],int(center[1]+offset))
-    
-    image_crop=image[h_low:h_high,w_low:w_high,:]
-    nr_modeled,gen_ims=detector.processImageOverlay(image_crop,[offset,offset])
-    images=[image_crop,*gen_ims]
-    return [nr_modeled],images
+            h_low = max(0, int(center[1]-offset))
+            h_high = min(image.shape[1], int(center[1]+offset))
+            image_crop = image[h_low:h_high, w_low:w_high, :]
+            nr_found, nr_modeled, gen_ims = detector.processImageOverlay(
+                image_crop, [offset, offset], detector.ball_colors[i])
+            nrs_modeled.append(nr_modeled)
+            nrs_found.append(nr_found)
+            images.append([image_crop, *gen_ims])
+    return nrs_found, nrs_modeled, images
 
-def save_images(images):
-    filenames=["image_crop","seg_background","seg_ball","seg_border","ransac_contour","ransac_tolerance_contour","lsq_modeled_contour","lsq_border_contour"]
-    for image, filename in zip(images,filenames):
+
+def save_images(images, index):
+    filenames = ["image_crop", "seg_background", "seg_ball", "seg_border", "ransac_contour",
+                 "ransac_tolerance_contour", "lsq_modeled_contour", "lsq_border_contour"]
+    for image, filename in zip(images, filenames):
         try:
-            image=Image.fromarray(image)
-            image.save(f"static/{filename}-{0}.png")
+            image = Image.fromarray(image)
+            image.save(f"static/{filename}-{index}.png")
         except:
             print(f"failed with image {image}")
     return filenames
 
+
 @app.route('/ransac')
 def ransac_settings():
-    detector=get_hsv_detector()
-    nr_modeled,images=generate_images(detector)
-    if images is not None:
-        filenames=save_images(images)
-        checkbox_labels=["","Background mask", "Ball mask", "Border mask", "Ransac fit", "Ransac tolerance (\"modeled\" pixels)","LSQ (fit to RANSAC)","LSQ (fit to all border)"]
-        ids=["ids", "ball_radius", "max_iterations", "confidence_threshold", "downsample", "tol_min", "tol_max"]
-        values=[ids, detector.ball_radius,detector.max_iterations,detector.confidence_threshold,detector.downsample,detector.min_dist/detector.ball_radius,detector.max_dist/detector.ball_radius]
-        settings=dict(zip(ids,values))
-        return render_template('ransac.html',ball_nr=detector.number_of_objects,images_n_labels=list(zip(filenames,checkbox_labels)),settings=settings,nr_modeled=nr_modeled)
-    else:
-        return "Ball not found"
+    detector = get_hsv_detector()
+    if getImage() is None:
+        return "Program hasn't properly started yet - try it again in a few seconds. :-)"
+    nr_found, nr_modeled, images = generate_images(detector)
+    for i, image_set in enumerate(images):
+        if image_set is not None:
+            filenames = save_images(image_set, i)
+    checkbox_labels = ["", "Background mask", "Ball mask", "Border mask", "Ransac fit",
+                       "Ransac tolerance (\"modeled\" pixels)", "LSQ (fit to RANSAC)", "LSQ (fit to all border)"]
+    ids = ["ids", "ball_radius", "max_iterations",
+           "confidence_threshold", "downsample", "tol_min", "tol_max"]
+    values = [ids, detector.ball_radius, detector.max_iterations, detector.confidence_threshold,
+              detector.downsample, detector.min_dist/detector.ball_radius, detector.max_dist/detector.ball_radius]
+    settings = dict(zip(ids, values))
+    return render_template('ransac.html', ball_nr=detector.number_of_objects, images_n_labels=list(zip(filenames, checkbox_labels)), settings=settings, nr_modeled=nr_modeled, nr_found=nr_found)
+
 
 @app.route('/ransac/change')
 def change_value():
-    detector=detector=get_hsv_detector()
-    id=request.args.get('id')
-    value=request.args.get('value')
+    detector = detector = get_hsv_detector()
+    id = request.args.get('id')
+    value = request.args.get('value')
     # print(f"received {value}")
-    try:
-        if '.' in value:
-            value=float(value)
-        else:
-            value=int(value)
-        if id=='tol_min':
-            id='min_dist'
-            value*=detector.ball_radius
-        elif id=='tol_max':
-            id='max_dist'
-            value*=detector.ball_radius
-        elif id=='ball_radius':
-            # print(f"min dist {detector.min_dist}, br {detector.ball_radius}")
-            detector.min_dist=detector.min_dist/detector.ball_radius*value
-            detector.max_dist=detector.max_dist/detector.ball_radius*value
-        # print(f"setting value {value}")
-        detector.__setattr__(id,value)
-        # detector.min_dist=1
-        nr_modeled,images=generate_images(detector)
-        save_images(images)
-        return jsonify(nr_modeled=nr_modeled)
-    except Exception as e:
-        print("Couldn't change settings: ")
-        print(e)
-        return jsonify(nr_modeled=[0 for _ in detector.nr_of_balls])
+    nrs_modeled = []
+    # try:
+    if '.' in value:
+        value = float(value)
+    else:
+        value = int(value)
+    if id == 'tol_min':
+        id = 'min_dist'
+        value *= detector.ball_radius
+    elif id == 'tol_max':
+        id = 'max_dist'
+        value *= detector.ball_radius
+    elif id == 'ball_radius':
+        # print(f"min dist {detector.min_dist}, br {detector.ball_radius}")
+        detector.min_dist = detector.min_dist/detector.ball_radius*value
+        detector.max_dist = detector.max_dist/detector.ball_radius*value
+    # print(f"setting value {value}")
+    detector.__setattr__(id, value)
+    # detector.min_dist=1
+    nrs_found, nrs_modeled, images = generate_images(detector)
+    for i, image_set in enumerate(images):
+        save_images(image_set, i)
+    # except Exception as e:
+    #     print("Couldn't change settings: ")
+    #     print(e)
+    print(nrs_found, nrs_modeled)
+    return jsonify(nr_modeled=nrs_modeled, nr_found=nrs_found)
+    # return jsonify(nr_modeled=[0 for _ in detector.number_of_objects])
 
 
 def rotate(origin, point, angle):
@@ -527,16 +554,18 @@ def rotate(origin, point, angle):
 
     return qx, qy
 
-def trapez(y,y0,w):
-    return np.clip(np.minimum(y+1+w/2-y0, -y+1+w/2+y0),0,1)
+
+def trapez(y, y0, w):
+    return np.clip(np.minimum(y+1+w/2-y0, -y+1+w/2+y0), 0, 1)
+
 
 def weighted_line(r0, c0, r1, c1, w=2, rmin=0, rmax=np.inf):
     # The algorithm below works fine if c1 >= c0 and c1-c0 >= abs(r1-r0).
     # If either of these cases are violated, do some switches.
-    r0=int(r0)
-    c0=int(c0)
-    r1=int(r1)
-    c1=int(c1)
+    r0 = int(r0)
+    c0 = int(c0)
+    r1 = int(r1)
+    c1 = int(c1)
     if abs(c1-c0) < abs(r1-r0):
         # Switch x and y, and switch again when returning.
         xx, yy, val = weighted_line(c0, r0, c1, r1, w, rmin=rmin, rmax=rmax)
@@ -561,9 +590,10 @@ def weighted_line(r0, c0, r1, c1, w=2, rmin=0, rmax=np.inf):
     # Now instead of 2 values for y, we have 2*np.ceil(w/2).
     # All values are 1 except the upmost and bottommost.
     thickness = np.ceil(w/2)
-    yy = (np.floor(y).reshape(-1,1) + np.arange(-thickness-1,thickness+2).reshape(1,-1))
+    yy = (np.floor(y).reshape(-1, 1) +
+          np.arange(-thickness-1, thickness+2).reshape(1, -1))
     xx = np.repeat(x, yy.shape[1])
-    vals = trapez(yy, y.reshape(-1,1), w).flatten()
+    vals = trapez(yy, y.reshape(-1, 1), w).flatten()
 
     yy = yy.flatten()
 
@@ -573,32 +603,40 @@ def weighted_line(r0, c0, r1, c1, w=2, rmin=0, rmax=np.inf):
 
     return (yy[mask].astype(int), xx[mask].astype(int), vals[mask])
 
+
 def paint_triangle(im, top_left_coords, bottom_left_coords, bottom_right_coords):
     if top_left_coords is not None and bottom_right_coords is not None:
-        theta=np.arctan2(top_left_coords[1]-bottom_right_coords[1],top_left_coords[0]-bottom_right_coords[0])+np.pi/4
-        center_of_mass=[(top_left_coords[0]+bottom_right_coords[0]+bottom_left_coords[0])/3,(top_left_coords[1]+bottom_right_coords[1]+bottom_left_coords[1])/3]
+        theta = np.arctan2(top_left_coords[1]-bottom_right_coords[1],
+                           top_left_coords[0]-bottom_right_coords[0])+np.pi/4
+        center_of_mass = [(top_left_coords[0]+bottom_right_coords[0]+bottom_left_coords[0])/3,
+                          (top_left_coords[1]+bottom_right_coords[1]+bottom_left_coords[1])/3]
         print(center_of_mass)
-        for i in range(-4,4+1):
-            im[int(center_of_mass[1])+i,int(center_of_mass[0]),1]=0xff
-            im[int(center_of_mass[1]),int(center_of_mass[0])+i,1]=0xff
-        
+        for i in range(-4, 4+1):
+            im[int(center_of_mass[1])+i, int(center_of_mass[0]), 1] = 0xff
+            im[int(center_of_mass[1]), int(center_of_mass[0])+i, 1] = 0xff
+
         # paint the triangle
-        side_length_pixel=122
+        side_length_pixel = 122
 
-        bl_corner=[center_of_mass[0]-side_length_pixel//3,center_of_mass[1]-side_length_pixel//3] # BL - bottom-left
-        br_corner=[bl_corner[0]+side_length_pixel,bl_corner[1]] # BR - bottom-right
-        tl_corner=[bl_corner[0],bl_corner[1]+side_length_pixel] # TL - top-left
+        bl_corner = [center_of_mass[0]-side_length_pixel//3,
+                     center_of_mass[1]-side_length_pixel//3]  # BL - bottom-left
+        br_corner = [bl_corner[0]+side_length_pixel,
+                     bl_corner[1]]  # BR - bottom-right
+        tl_corner = [bl_corner[0], bl_corner[1] +
+                     side_length_pixel]  # TL - top-left
 
-        bl_corner=rotate(center_of_mass,bl_corner,theta)
-        br_corner=rotate(center_of_mass,br_corner,theta)
-        tl_corner=rotate(center_of_mass,tl_corner,theta)
+        bl_corner = rotate(center_of_mass, bl_corner, theta)
+        br_corner = rotate(center_of_mass, br_corner, theta)
+        tl_corner = rotate(center_of_mass, tl_corner, theta)
 
-        lines=[weighted_line(bl_corner[0],bl_corner[1],br_corner[0],br_corner[1]),
-            weighted_line(tl_corner[0],tl_corner[1],br_corner[0],br_corner[1]),
-            weighted_line(bl_corner[0],bl_corner[1],tl_corner[0],tl_corner[1])]
+        lines = [weighted_line(bl_corner[0], bl_corner[1], br_corner[0], br_corner[1]),
+                 weighted_line(tl_corner[0], tl_corner[1],
+                               br_corner[0], br_corner[1]),
+                 weighted_line(bl_corner[0], bl_corner[1], tl_corner[0], tl_corner[1])]
         for line in lines:
             for i in range(len(line[0])):
-                im[line[1][i],line[0][i]]=[0xff,0x33,0xda]#int(150*line[2][i])
+                im[line[1][i], line[0][i]] = [
+                    0xff, 0x33, 0xda]  # int(150*line[2][i])
         return im
 
 
@@ -609,31 +647,32 @@ def triangle():
     if im is None:
         return "Program hasn't properly started yet - try it again in a few seconds. :-)"
     print(app.processor.centers)
-    centers=app.processor.centers
-    red=centers[0]
-    blue=centers[1]
-    green=centers[2]
-    pink=centers[3]
-    yellow=centers[4]
-    orange=centers[5]
-    
+    centers = app.processor.centers
+    red = centers[0]
+    blue = centers[1]
+    green = centers[2]
+    pink = centers[3]
+    yellow = centers[4]
+    orange = centers[5]
+
     # paint centers
     for center in centers:
         if center is not None:
-            for i in range(-16,16):
-                if center[0]+i<0 or center[0]+i>im.shape[0] or center[1]+i<0 or center[1]+i>im.shape[1]:
+            for i in range(-16, 16):
+                if center[0]+i < 0 or center[0]+i > im.shape[0] or center[1]+i < 0 or center[1]+i > im.shape[1]:
                     continue
-                im[int(center[1])+i,int(center[0]),:]=0xff
-                im[int(center[1]),int(center[0])+i,:]=0xff
+                im[int(center[1])+i, int(center[0]), :] = 0xff
+                im[int(center[1]), int(center[0])+i, :] = 0xff
 
     # paint triangles
-    paint_triangle(im,blue,yellow, red)
-    paint_triangle(im,pink, orange, green)
+    paint_triangle(im, blue, yellow, red)
+    paint_triangle(im, pink, orange, green)
 
     # return the data as a png
     image = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
     _, buffer = cv2.imencode('.png', image)
     return responseImage(buffer.tobytes())
+
 
 def start():
     if not app.thread:

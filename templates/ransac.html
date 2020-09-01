@@ -64,18 +64,25 @@
         }
 
         function fake_image_update() {
-            {%for image, label in images_n_labels%}
-            $(".{{image}}").attr(
-                "src", "/static/{{image}}-0.png?time=" + new Date().getTime()
+            {%for i in range(ball_nr) %}
+            {%for image, label in images_n_labels %}
+            $(".{{image}}-{{i}}").attr(
+                "src", "/static/{{image}}-{{i}}.png?time=" + new Date().getTime()
             )
+            {% endfor %}
             {% endfor %}
         }
 
-        function update_modeled_values(data){
-            {%for i in range(ball_nr)%}
-            console.log(data.nr_modeled[0])
-            $("#modeled-{{i}}").text("modeled "+data.nr_modeled[{{i}}]);
-            {%endfor%}
+        function update_modeled_values(data) {
+            {%for i in range(ball_nr) %}
+            $("#modeled-{{i}}").text("modeled " + data.nr_modeled[{{ i }}]+" (found: " + data.nr_found[{{ i }}]+")");
+            console.log(document.getElementById("confidence_threshold").value)
+            console.log(parseInt(document.getElementById("confidence_threshold").value))
+            if(parseInt(document.getElementById("confidence_threshold").value)>data.nr_found[{{i}}]){
+                console.log("adding text")
+                $("#modeled-{{i}}").append("<p>Consider decreasing confidence threshold - ball not detected due to not enough border pixels available (must be > confidence)</p>")
+            }
+        {% endfor %}
         }
 
         function change_parameter(id) {
@@ -83,53 +90,75 @@
             $.getJSON("/ransac/change", {
                 id: id,
                 value: document.getElementById(id).value,
-            }, function(data){update_modeled_values(data)});
+            }, function (data) { update_modeled_values(data) });
             // no idea why but calling it once, then sleeping and calling it for the second time makes it work...
             fake_image_update()
-            sleep(100);
+            sleep(200);
             fake_image_update();
         }
 
 
     </script>
+    <div style="display:flex;flex-direction:column;flex:1">
+        <div class="container-ims">
+            {%for i in range(ball_nr)%}
+            <div class="image-modeled">
+                <div class="image-stack">
+                    {%for image,_ in images_n_labels%}
+                    <img class="{{image}} {{image}}-{{i}}" src="/static/{{image}}-{{i}}.png"
+                        {%if image!= 'image_crop'%}style="visibility: hidden;\" {%endif%} />
+                    {%endfor%}
+                </div>
+                <p id="modeled-{{i}}">modeled: {{nr_modeled[i]}} (found: {{nr_found[i]}})</p>
+            </div>
+            {%endfor%}
+        </div>
 
-    <div class="container">
-        {%for image,_ in images_n_labels%}
-        <img class="{{image}}" src="/static/{{image}}-0.png" {%if image!= 'image_crop'%}style="visibility: hidden;\"{%endif%} />
-        {%endfor%}
-        {%for i in range(ball_nr)%}
-        <p id="modeled-{{i}}">modeled: {{nr_modeled[i]}}</p>
-        {%endfor%}
+        <div style="display:flex;">
+            <div id="checkboxes" class="padded_left">
+                {%for image, label in images_n_labels[1:]%}
+                <input id={{image}}_cb type="checkbox" name={{image}}_cb class="cboxes"
+                    onchange="save('{{image}}_cb'); toggle_image('{{image}}')" />
+                <label for={{image}}_cb>{{label}}</label>
+                <script>
+                    $(document).ready(function () {
+                        toggle_image("{{ image }}");
+                    });
+                </script>
+                <br>
+                {%endfor%}
+            </div>
+        </div>
+        <!-- <br> -->
+        <div id="settings">
+
+            <div class="row">
+                <div class="col-md-2">
+                    Ball radius:</div>
+                <div class="col-md-2">
+                    <input id="{{settings.ids[1]}}" value="{{settings.ball_radius}}" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-2"> Maximum iterations:</div>
+                <div class="col-md-2"><input id="{{settings.ids[2]}}" value="{{settings.max_iterations}}" /></div>
+            </div>
+            <div class="row">
+                <div class="col-md-2">Confidence threshold:</div>
+                <div class="col-md-2"><input id="{{settings.ids[3]}}" value="{{settings.confidence_threshold}}" /></div>
+            </div>
+            <div class="row">
+                <div class="col-md-2"> Downsampling:</div>
+                <div class="col-md-2"><input id="{{settings.ids[4]}}" value="{{settings.downsample}}" /></div>
+            </div>
+            <div class="row">
+                <div class="col-md-2">Tolerance coeff min:</div>
+                <div class="col-md-2"><input id="{{settings.ids[5]}}" value="{{settings.tol_min}}" /></div>
+                <div class="col-md-1"> max: </div>
+                <div class="col-md-2"><input id="{{settings.ids[6]}}" value="{{settings.tol_max}}" /></div>
+            </div>
+        </div>
     </div>
-    <div id="checkboxes" class="padded_left">
-        {%for image, label in images_n_labels[1:]%}
-        <input id={{image}}_cb type="checkbox" name={{image}}_cb class="cboxes"
-            onchange="save('{{image}}_cb'); toggle_image('{{image}}')" />
-        <label for={{image}}_cb>{{label}}</label>
-        <script>
-            $(document).ready(function () {
-                toggle_image("{{ image }}");
-            });
-        </script>
-        <br>
-        {%endfor%}
-    </div>
-    <br>
-    <div id="settings" class="padded_left">
-        Ball radius:
-        <input id="{{settings.ids[1]}}" value="{{settings.ball_radius}}" />
-        <br>
-        Maximum iterations:
-        <input id="{{settings.ids[2]}}" value="{{settings.max_iterations}}" />
-        <br>
-        Confidence threshold:
-        <input id="{{settings.ids[3]}}" value="{{settings.confidence_threshold}}" />
-        <br>
-        Downsampling:
-        <input id="{{settings.ids[4]}}" value="{{settings.downsample}}" />
-        <br>
-        Tolerance coeff min: <input id="{{settings.ids[5]}}" value="{{settings.tol_min}}" /> max: <input
-            id="{{settings.ids[6]}}" value="{{settings.tol_max}}" />
     </div>
     <script>
         let node;
@@ -142,7 +171,6 @@
             {% endfor %}
         });
     </script>
-
     <!-- Bootstrap core JavaScript
 		================================================== -->
     <!-- Placed at the end of the document so the pages load faster -->

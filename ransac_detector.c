@@ -237,6 +237,13 @@ void get_segmentation_mask(uint8_t *img, int width, int height, uint8_t *mask,
 void get_ball_pixels(uint8_t *img, int width, int height, int number_of_colors,
                      uint8_t *rgb_to_balls_map, int step, uint8_t *mask,
                      IntCoords_t *ball_pixels) {
+  for (int i = 0; i < number_of_colors; ++i) {
+    ball_pixels[i].coords =
+        possibly_resize_ptr(ball_pixels[i].coords, &ball_pixels[i].allocated,
+                            NEW_GROUP_LEN, sizeof(IntCoord_t));
+    ball_pixels[i].length = 0;
+  }
+
   // walk through the picture
   for (int y = 0; y < height; y = y + step) {
     for (int x = 0; x < width; x = x + step) {
@@ -341,7 +348,19 @@ void get_border(uint8_t *segmentation_mask, int width, int height,
  group_index_ls: [3,4,0,1]
  groups_l: 4
  */
+  // first set up the arrays appropriately
+  if (border->allocated == 0) {
+    border->coords = malloc(NEW_GROUP_LEN * sizeof(IntCoord_t));
+    border->allocated = NEW_GROUP_LEN;
+  }
   border->length = 0;
+  for (int i = 0; i < prev_pos->length; ++i) {
+    (*groups)[i].length = 0;
+    (*groups)[i].indexes =
+        possibly_resize_ptr((*groups)[i].indexes, &(*groups)[i].allocated,
+                            NEW_GROUP_LEN, sizeof(int));
+  }
+
   for (int i = 0; i < ball_pixels->length; ++i) {
     int x = ball_pixels->coords[i].x;
     int y = ball_pixels->coords[i].y;
@@ -525,11 +544,13 @@ bool in_group(Coord_t *model, Coord_t *previous_center, float max_dx2,
 }
 
 // returns the length of modeled indexes
-void find_modeled_pixels(Coord_t *model, Coord_t *previous_center,
-                         float max_dx2, float min_dist, float max_dist,
-                         IntCoords_t *set_to_check, Indexes_t *modeled) {
+void find_modeled_pixels(Coord_t *model, float max_dx2, float min_dist,
+                         float max_dist, IntCoords_t *set_to_check,
+                         Indexes_t *modeled) {
   // check if it is possible to only search in group coords
-
+  modeled->length = 0;
+  modeled->indexes = possibly_resize_ptr(modeled->indexes, &modeled->allocated,
+                                         set_to_check->length, sizeof(int));
   for (int i = 0; i < set_to_check->length; ++i) {
     float distance2 =
         distance_f2((float)set_to_check->coords[i].x,
@@ -650,11 +671,8 @@ void detect_ball(IntCoords_t *border, Indexes_t *group, Coord_t *prev_pos,
       set_to_check = border;
     }
     static Indexes_t modeled = {0, 0, NULL};
-    modeled.length = 0;
-    modeled.indexes = possibly_resize_ptr(modeled.indexes, &modeled.allocated,
-                                          set_to_check->length, sizeof(int));
 
-    find_modeled_pixels(center_ransac, prev_pos, max_dx2, min_dist, max_dist,
+    find_modeled_pixels(center_ransac, max_dx2, min_dist, max_dist,
                         set_to_check, &modeled);
     // printf("found modeled pixels\n");
     *center_coope = lsq_on_modeled(set_to_check, &modeled);
@@ -673,7 +691,7 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
   // ball colors is an array that for each ball in previous positions has a
   // color index, that is the same as in the rgb_to_balls_map - probably defined
   // by the order of colors passed to init table
-  for (int p = 0; p < 1000; ++p) {
+  for (int p = 0; p < 1; ++p) {
 
     int number_of_colors = 0;
     for (int i = 0; i < prev_pos->length; ++i) {
@@ -706,10 +724,6 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
       }
     }
 
-    for (int i = 0; i < ball_pixels_l; ++i) {
-      ball_pixels[i].length = 0;
-    }
-
     get_ball_pixels(img, width, height, number_of_colors, rgb_to_balls_map,
                     step, segmentation_mask, ball_pixels);
 
@@ -732,13 +746,6 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
 
     // find border
     static IntCoords_t border = {0, 0, NULL};
-    // first make sure there is enough memory allocated (result of malloc is not
-    // constant at compile time)
-    if (border.allocated == 0) {
-      border.coords = malloc(NEW_GROUP_LEN * sizeof(IntCoord_t));
-      border.allocated = NEW_GROUP_LEN;
-    }
-
     static Indexes_t *groups = NULL;
     static int groups_l = 0;
     if (groups_l < prev_pos->length) {
@@ -753,7 +760,6 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
     }
 
     for (int c = 0; c < number_of_colors; ++c) {
-      // printf("color %d\n",c);
       // only create groups for balls of the same color
       // because groups aren't created for invalid previous coords, this is an
       // easy way to do so without sacrificing ball-group indexing
@@ -765,9 +771,6 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
         }
       }
 
-      for (int i = 0; i < prev_pos->length; ++i) {
-        groups[i].length = 0;
-      }
       get_border(segmentation_mask, width, height, ball_pixels + c,
                  &filtered_prev_pos, step, max_dx2, NULL, NULL, &groups,
                  &border);
@@ -777,12 +780,7 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
       //   printf("[%d,%d]\n", border.coords[i].x, border.coords[i].y);
       // }
 
-      // printf("%s,
-      // %s\n",(skipped[0]?"true":"false"),(skipped[1]?"true":"false"));
-      // printf("bc %d: %d\n", c, border_coords_l);
       // again, make sure enough memory is allocated
-
-      // parse_to_float_coords(border, border);
 
       // first, only balls with known previous positions are searched
       for (int i = 0; i < prev_pos->length; ++i) {
