@@ -119,7 +119,6 @@ def detector_funcs():
 
     funcs.find_modeled_pixels.argtypes = [
         POINTER(Coord_t),  # model
-        c_float,  # max_dx2
         c_float,  # min_dist
         c_float,  # max_dist
         POINTER(IntCoords_t),  # border
