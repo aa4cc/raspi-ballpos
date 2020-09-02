@@ -672,13 +672,17 @@ void remove_pixels(IntCoords_t *border, Indexes_t *group, Indexes_t *modeled,
 }
 
 Coord_t lsq_on_modeled(IntCoords_t *coords, Indexes_t *modeled) {
+ /**
+  * @brief  tries to find a better fit using least squares
+  * @note   
+  * @retval lsq fit
+  */
   static Coord_t *modeled_for_cpp;
   static size_t modeled_al = 0;
   modeled_for_cpp = possibly_resize_ptr(modeled_for_cpp, &modeled_al,
                                         modeled->length, sizeof(Coord_t));
 
   for (int i = 0; i < modeled->length; ++i) {
-    // printf("[%f, %f]-", coords[i].x, coords[i].y);
     modeled_for_cpp[i].x = (float)coords->coords[modeled->indexes[i]].x;
     modeled_for_cpp[i].y = (float)coords->coords[modeled->indexes[i]].y;
   }
@@ -709,7 +713,6 @@ void filter_group_coords(IntCoords_t *border, Indexes_t *group,
                             border->length, sizeof(IntCoord_t));
     for (int i = 0; i < border->length; ++i) {
       IntCoord_t group_pixel = border->coords[i];
-      // printf("[%f, %f]\n", border_coords[i].x, border_coords[i].y);
       if (valid_intcoord(group_pixel)) {
         filtered->coords[filtered->length++] = group_pixel;
       }
@@ -776,6 +779,16 @@ void detect_ball(IntCoords_t *border, Indexes_t *group, Coord_t *prev_pos,
   }
 }
 
+int compute_number_of_colors(int *ball_colors, int nr_of_balls) {
+  int number_of_colors = 0;
+  for (int i = 0; i < nr_of_balls; ++i) {
+    if (ball_colors[i] >= number_of_colors) {
+      number_of_colors = ball_colors[i] + 1;
+    }
+  }
+  return number_of_colors;
+}
+
 void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
                   int height, int step, Coords_t *prev_pos, int *ball_colors,
                   float max_dx2, float r, float min_dist, float max_dist,
@@ -791,8 +804,9 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
    * @param step allows to only look at every n-th pixel (to save time)
    * @param prev_pos the previous positions of the ball (if known - otherwise
    * invalid with NANs) - valid values will improve speed
-   * @param ball_colors specifies what color each of the balls is 
-   * (e.g. for 2 balls of color 0, 1 of color 1 and 3 of color 2, the array would be [0,0,1,2,2,2])
+   * @param ball_colors specifies what color each of the balls is
+   * (e.g. for 2 balls of color 0, 1 of color 1 and 3 of color 2, the array
+   *would be [0,0,1,2,2,2])
    * @param max_dx2 determines how far to look from previous position for new
    *candidates (squared)
    * @param r ball radius
@@ -809,16 +823,9 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
    * precise, is stored there
    * @retval None
    */
-  //
-  // ball colors is an array that for each ball in previous positions has a
-  // color index, that is the same as in the rgb_to_balls_map - probably defined
-  // by the order of colors passed to init table
-  int number_of_colors = 0;
-  for (int i = 0; i < prev_pos->length; ++i) {
-    if (ball_colors[i] >= number_of_colors) {
-      number_of_colors = ball_colors[i] + 1;
-    }
-  }
+
+  int number_of_colors =
+      compute_number_of_colors(ball_colors, prev_pos->length);
 
   static uint8_t *segmentation_mask = NULL;
   static size_t segmentation_mask_al = 0;
@@ -845,12 +852,6 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
   get_ball_pixels(img, width, height, number_of_colors, rgb_to_balls_map, step,
                   segmentation_mask, ball_pixels);
 
-  static bool *skipped = NULL;
-  static size_t skipped_al = 0;
-  skipped =
-      possibly_resize_ptr(skipped, &skipped_al, prev_pos->length, sizeof(bool));
-  memset(skipped, true, prev_pos->length * sizeof(bool));
-
   // find border
   static IntCoords_t border = {0, 0, NULL};
   static Indexes_t *groups = NULL;
@@ -866,6 +867,12 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
     groups_l = prev_pos->length;
   }
 
+  // now let's find all the balls
+  static bool *skipped = NULL;
+  static size_t skipped_al = 0;
+  skipped =
+      possibly_resize_ptr(skipped, &skipped_al, prev_pos->length, sizeof(bool));
+  memset(skipped, true, prev_pos->length * sizeof(bool));
   for (int c = 0; c < number_of_colors; ++c) {
     // only create groups for balls of the same color
     // because groups aren't created for invalid previous coords, this is an
@@ -880,8 +887,6 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
 
     get_border(segmentation_mask, width, height, ball_pixels + c,
                &filtered_prev_pos, step, max_dx2, NULL, NULL, &groups, &border);
-
-    // again, make sure enough memory is allocated
 
     // first, only balls with known previous positions are searched
     for (int i = 0; i < prev_pos->length; ++i) {
@@ -910,6 +915,7 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
     }
   }
 
+  // if the ball wasn't found, return NAN coords
   Coord_t not_found = {NAN, NAN};
   for (int i = 0; i < prev_pos->length; ++i) {
     if (skipped[i]) {
