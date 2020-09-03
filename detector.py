@@ -485,7 +485,7 @@ class HSVDetector(Detector):
 
         # MultiColor Specifics
         if ('params' in locals() or 'params' in globals()) and params['load_old_color_settings']:
-            self.load_color_settings()
+            self.load_settings()
             print("Loaded old settings!")
         else:
             ball_colors = kwargs.get("ball_colors", None)
@@ -618,7 +618,7 @@ class RansacDetector(HSVDetector):
 
         HSVDetector.__init__(self, **kwargs)
         if ('params' in locals() or 'params' in globals()) and params['load_old_color_settings']:
-            self.load_color_settings()
+            self.load_settings()
 
         self.c_funcs = ransac_detector_ctypes.detector_funcs()
         self.init_table()
@@ -660,7 +660,7 @@ class RansacDetector(HSVDetector):
                     self.balls) if new_ball_colors[i] != 0]
             print(self.ball_colors, self.number_of_objects,
                   self.balls, self.centers)
-            self.save_color_settings()
+            self.save_settings()
         self.c_code_lock.release()
 
     # necessary function - it initializes the RGB-HSV color table that is used for detection
@@ -683,13 +683,13 @@ class RansacDetector(HSVDetector):
         seq[:] = l
         return seq
 
-    def save_color_settings(self):
+    def save_settings(self):
         super().save_color_settings('color_settings_ransac.pkl')
         with open('other_settings_ransac', 'wb') as settings_file:
             pickle.dump([self.ball_colors, self.ball_radius, self.downsample, self.confidence_threshold, self.min_dist,
                          self.max_dist, self.max_iterations, self.number_of_objects, self.max_dx], settings_file, pickle.HIGHEST_PROTOCOL)
 
-    def load_color_settings(self):
+    def load_settings(self):
         try:
             with open('other_settings_ransac', 'rb') as settings_file:
                 self.ball_colors, self.ball_radius, self.downsample, self.confidence_threshold, self.min_dist, self.max_dist, self.max_iterations, self.number_of_objects,self.max_dx = pickle.load(settings_file)

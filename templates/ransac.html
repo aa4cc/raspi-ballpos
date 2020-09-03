@@ -93,7 +93,7 @@
             }, function (data) { update_modeled_values(data) });
             // no idea why but calling it once, then sleeping and calling it for the second time makes it work...
             fake_image_update()
-            sleep(200);
+            sleep(400);
             fake_image_update();
         }
 
@@ -167,6 +167,10 @@
                 <div class="col-md-2"><input id="{{settings.ids[5]}}" value="{{settings.tol_min}}" /></div>
                 <div class="col-md-1"> max: </div>
                 <div class="col-md-2"><input id="{{settings.ids[6]}}" value="{{settings.tol_max}}" /></div>
+            </div>
+            <div class="row">
+                <div class="col-md-2"> Maximum expected movement per frame:</div>
+                <div class="col-md-2"><input id="{{settings.ids[8]}}" value="{{settings.max_dx}}" /></div>
             </div>
             <div class="row">
                 <div class="col-md-2">Ball color amounts:</div>

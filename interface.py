@@ -465,11 +465,11 @@ def ransac_settings():
     checkbox_labels = ["", "Background mask", "Ball mask", "Border mask", "Ransac fit",
                        "Ransac tolerance (\"modeled\" pixels)", "LSQ (fit to RANSAC)", "LSQ (fit to all border)"]
     ids = ["ids", "ball_radius", "max_iterations",
-           "confidence_threshold", "downsample", "tol_min", "tol_max", "ball_color_amounts"]
+           "confidence_threshold", "downsample", "tol_min", "tol_max", "ball_color_amounts", "max_dx"]
     ball_amounts = [detector.ball_colors.count(
         i) for i in range(len(detector.balls))]
     values = [ids, detector.ball_radius, detector.max_iterations, detector.confidence_threshold,
-              detector.downsample, detector.min_dist/detector.ball_radius, detector.max_dist/detector.ball_radius, ball_amounts]
+              detector.downsample, detector.min_dist/detector.ball_radius, detector.max_dist/detector.ball_radius, ball_amounts,detector.max_dx]
 
     settings = dict(zip(ids, values))
     return render_template('ransac.html', ball_nr=detector.number_of_objects, color_nr=len(detector.balls), 
@@ -501,6 +501,7 @@ def change_value():
         detector.max_dist = detector.max_dist/detector.ball_radius*value
     # print(f"setting value {value}")
     detector.__setattr__(id, value)
+    detector.save_settings()
     # detector.min_dist=1
     nrs_found, nrs_modeled, images = generate_images(detector)
     for i, image_set in enumerate(images):
