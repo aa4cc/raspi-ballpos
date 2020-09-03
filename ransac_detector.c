@@ -246,10 +246,11 @@ void get_segmentation_mask(uint8_t *img, int width, int height, uint8_t *mask,
 
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
-      Color_t *c = (Color_t *)pixel(img, x, y);
-      if (((ball->h_min < c->r && ball->h_max > c->r) ||
-           (ball->h_min < c->r + 256 && ball->h_max > c->r + 256)) &&
-          ball->sat_min < c->g && c->b > ball->val_min) {
+      Color_t *c = (Color_t *)pixel(img, x, y); // 3x8bit HSV
+      hsv_t hsv={((float)c->r)/256*360,((float)c->g)/256,((float)c->b)/256};
+      if (((ball->h_min < hsv.h && ball->h_max > hsv.h) ||
+           (ball->h_min < hsv.h + 256 && ball->h_max > hsv.h + 256)) &&
+          ball->sat_min < hsv.s && hsv.v > ball->val_min) {
         mask[image_index(x, y)] = 0;
       } else {
         mask[image_index(x, y)] = NONE;
@@ -674,7 +675,7 @@ void remove_pixels(IntCoords_t *border, Indexes_t *group, Indexes_t *modeled,
 Coord_t lsq_on_modeled(IntCoords_t *coords, Indexes_t *modeled) {
  /**
   * @brief  tries to find a better fit using least squares
-  * @note   
+  * @note   computed using eigen (C++ library)
   * @retval lsq fit
   */
   static Coord_t *modeled_for_cpp;

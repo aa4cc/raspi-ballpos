@@ -218,13 +218,14 @@
             value="{{ball.get_color_for_webpage_hidden_input()}}">
         </div>
         <div id="tolerance_slider-{{loop.index0}}" width="320"><input type=hidden id="slider-{{loop.index0}}_value"
-            value="{{int(ball.h_tolerance*360)}}"></div>
+            value="{{int(100*ball.h_tolerance)}}"></div>
         <script>
           $(function () {
+            console.log({{int(500*ball.h_tolerance)}})
             $("#tolerance_slider-{{loop.index0}}").slider({
-              value: {{int(ball.h_tolerance * 360)}},
+              value: {{int(500*ball.h_tolerance)}},
               min: 0,
-              max: 40,
+              max: 100,
               stop: function (event, ui) {
                 $("#slider-{{loop.index0}}_value").val(ui.value);
                 send_color_settings({{loop.index0}});

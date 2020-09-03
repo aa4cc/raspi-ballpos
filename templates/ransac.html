@@ -76,12 +76,12 @@
         function update_modeled_values(data) {
             {%for i in range(ball_nr) %}
             $("#modeled-{{i}}").text("modeled " + data.nr_modeled[{{ i }}]+" (found: " + data.nr_found[{{ i }}]+")");
-            console.log(document.getElementById("confidence_threshold").value)
-            console.log(parseInt(document.getElementById("confidence_threshold").value))
-            if(parseInt(document.getElementById("confidence_threshold").value)>data.nr_found[{{i}}]){
-                console.log("adding text")
-                $("#modeled-{{i}}").append("<p>Consider decreasing confidence threshold - ball not detected due to not enough border pixels available (must be > confidence)</p>")
-            }
+        console.log(document.getElementById("confidence_threshold").value)
+        console.log(parseInt(document.getElementById("confidence_threshold").value))
+        if (parseInt(document.getElementById("confidence_threshold").value) > data.nr_found[{{ i }}]) {
+            console.log("adding text")
+            $("#modeled-{{i}}").append("<p>Consider decreasing confidence threshold - ball not detected due to not enough border pixels available (must be > confidence)</p>")
+        }
         {% endfor %}
         }
 
@@ -97,6 +97,18 @@
             fake_image_update();
         }
 
+        function change_color_amounts() {
+            let columns = Array.from(document.getElementById("colors-row").getElementsByTagName("*"));
+            let amounts = [];
+            for (column of columns) {
+                let textInput = [...column.getElementsByTagName("*")][0];
+                if (!textInput) { continue; }
+                amounts.push(textInput.value);
+            }
+            $.getJSON("/ransac/change_amounts", {
+                amounts: JSON.stringify(amounts.slice(0, amounts.length - 1)),
+            }, function (data) { if (data.response !== 0) { alert("Invalid input!"); } else { location.reload(); } });
+        }
 
     </script>
     <div style="display:flex;flex-direction:column;flex:1">
@@ -157,6 +169,19 @@
                 <div class="col-md-1"> max: </div>
                 <div class="col-md-2"><input id="{{settings.ids[6]}}" value="{{settings.tol_max}}" /></div>
             </div>
+            <div class="row">
+                <div class="col-md-2">Ball color amounts:</div>
+                <div class="col-md-5">
+                    <div class="row" id="colors-row">
+                        {%for i in range(color_nr)%}
+                        <div class="col-md-1"><input id="{{settings.ids[7]}}-{{i}}" class={{settings.ids[7]}} size="3"
+                                style="background-color: {{colors[i]}}; color:white;"
+                                value="{{settings.ball_color_amounts[i]}}" /></div>
+                        {%endfor%}
+                        <div class="col-md-1" id="add-button"><button type="button" style="width: 50px">+</button></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     </div>
@@ -164,12 +189,47 @@
         let node;
         $(document).ready(function () {
             {%for id in settings.ids[1:]%}
+            {%if (id != settings.ids[7])%}
             node = document.getElementById("{{id}}");
             node.addEventListener('keyup', ({ key }) => {
                 if (key === "Enter") change_parameter("{{id}}");
             })
+            {% endif %}
             {% endfor %}
         });
+
+        $(document).ready(function () {
+            nodes = document.getElementsByClassName('{{settings.ids[7]}}');
+            for (node of nodes) {
+                node.addEventListener('keyup', ({ key }) => {
+                    if (key === "Enter") change_color_amounts();
+                })
+            }
+        })
+    </script>
+
+    <script>
+        $(document).ready(function () {
+            node = document.getElementById("add-button");
+            node.addEventListener('click', add_color);
+        });
+
+        let index = {{ color_nr }};
+        function add_color() {
+            let newColumn = document.createElement("div");
+            newColumn.className = "col-md-1";
+            let text = document.createElement("input");
+            text.addEventListener('keyup', ({ key }) => {
+                if (key === "Enter") change_color_amounts()
+            });
+            text.id = "{{settings.ids[7]}}-" + index;
+            text.size = 3;
+            text.value = 0;
+            newColumn.appendChild(text);
+            const button = document.getElementById("add-button");
+            document.getElementById("colors-row").insertBefore(newColumn, button);
+            index++;
+        };
     </script>
     <!-- Bootstrap core JavaScript
 		================================================== -->

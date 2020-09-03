@@ -301,9 +301,6 @@ def ball_colors():
                 y_coordinates[ball_index].append(sample[1])
             if sample is not None and sample[2] is not None:
                 thetas[ball_index].append(sample[2])
-        # if current_centers_found == 0:
-        #     x_coordinates.append(np.nan)
-        #     y_coordinates.append(np.nan)
         ball_centers_found.append(current_centers_found)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -316,23 +313,15 @@ def ball_colors():
 
     # save images for website
     pil_image = Image.fromarray(im)
-    # pil_image.save('static/imageBRG.png')
-    # pil_image=pil_image.convert('BGR;16')
     pil_image.save('static/image.png')
-    # cv2.imwrite('static/imageBRG.png', im)
+    hsv_image = pil_image.convert('HSV') # 3x8 bit [0,255]
+    np.save('static/image_hsv', np.array(hsv_image))
 
-    # im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
-    # cv2.imwrite('static/image.png', im)
-    # im = cv2.cvtColor(im, cv2.COLOR_BGR2HSV)
-    # pil_image.save('static/imageBRG.png')
-    pil_image = pil_image.convert('HSV')
-    np.save('static/image_hsv', np.array(pil_image))
-
-    return render_template('ball_colors.html', balls=MultiDetector.balls, found=ball_centers_found, test_iterations=test_iterations, means=ball_center_means, percentages=percentages, stds=ball_center_stds, int=int, len=len)
+    return render_template('ball_colors.html', balls=MultiDetector.balls, found=ball_centers_found, 
+            test_iterations=test_iterations, means=ball_center_means, percentages=percentages, 
+            stds=ball_center_stds, int=int, len=len)
 
 # receives x,y coordinates and responds with picture color in RGB at that position
-
-
 @app.route('/ball_colors/color')
 def color():
     try:
@@ -351,7 +340,6 @@ def color():
         y = 0
     im = np.load('static/image_hsv.npy')
     pixel = im[y, x]
-    # print(pixel*[360/256,100/256,100/256])
     r, g, b = colorsys.hsv_to_rgb(float(pixel[0])/256, 0.3, 0.3)
 
     #print("R: {}, G: {}, B: {}".format(int(r*256), int(g*256), int(b*256)))
@@ -367,12 +355,11 @@ It is still necessary to reinit the table in C, preferably using '/ball_colors/s
 
 
 def compute_mask(im, detector, ball_t):
-    image = getImage()
-    mask = np.zeros(shape=tuple(image.shape[:2]), dtype=np.uint8)
+    mask = np.zeros(shape=tuple(im.shape[:2]), dtype=np.uint8)
     # print(mask.shape)
     if isinstance(detector, RansacDetector):
         detector.c_funcs.get_segmentation_mask(
-            im, *image.shape[:2], mask, byref(ball_t))
+            im, *im.shape[:2], mask, byref(ball_t))
     else:
         print("This detector does not support segmentation mask in browser, sorry!")
     return mask
@@ -380,14 +367,12 @@ def compute_mask(im, detector, ball_t):
 
 @app.route('/ball_colors/limits')
 def limits():
-    h_mod = 256  # 180
     try:
         formatted = (request.args.get('formatted'))
-        tolerance = int(request.args.get('tolerance'))
+        tolerance = float(request.args.get('tolerance'))/500 # as int in [0,100]
         index = int(request.args.get('index'))
         m = re.match(r'HSV\((.*),(.*),(.*)\)', formatted)
-        h = float(m.group(1))*h_mod  # supplied as float in [0,1]
-        # tolerance /= 2  # from 360 to 180
+        h = float(m.group(1)) # supplied as float in [0,1]
         s = int(m.group(2))  # supplied as int in [0,255]
         v = int(m.group(3))  # supplied as int in [0,255]
     except:
@@ -395,33 +380,18 @@ def limits():
               formatted, request.args.get('tolerance'), request.args.get('index')))
         return "ERROR"
     # TODO: check if hues overlap
-    h_min = int(h-tolerance)
-    h_max = int(h+tolerance)
-    sat_min = int(s)
-    v_min = int(v)
-
-    if h_min < 0:
-        h_min += h_mod
-        h_max += h_mod
-
-    im = np.load('static/image_hsv.npy')
-    lower_bound = np.array([h_min, sat_min, v_min])
-    upper_bound = np.array([h_max, 255, 255])
+    print(f"Webpage: {h}, {tolerance} {s}, {v}")
 
     MultiDetector = get_hsv_detector()
     if not isinstance(MultiDetector, Detector):
         return MultiDetector
+    MultiDetector.balls[index].set_new_values_tolerance(
+        h, tolerance, s, v, htype="float", svtypes="256")
 
-    print(f"Webpage: {h}, {tolerance} {s}, {v}")
-    MultiDetector.balls[index].set_new_values(
-        h, tolerance, s, v, htype="256", svtypes="256")
+    im = np.load('static/image_hsv.npy')
 
-    # start=time.time()
+    mask = compute_mask(im, MultiDetector, MultiDetector.balls[index].ball_t)
 
-    mask = compute_mask(im, MultiDetector, Ball_t(h_min, h_max, s, v))
-
-    # print(compute_mask.inspect_types())
-    # print(f"Took {time.time()-start}")
     image = Image.fromarray(mask)
     image.save("static/im_thrs-{}.png".format(index))
     return "OK"
@@ -497,11 +467,16 @@ def ransac_settings():
     checkbox_labels = ["", "Background mask", "Ball mask", "Border mask", "Ransac fit",
                        "Ransac tolerance (\"modeled\" pixels)", "LSQ (fit to RANSAC)", "LSQ (fit to all border)"]
     ids = ["ids", "ball_radius", "max_iterations",
-           "confidence_threshold", "downsample", "tol_min", "tol_max"]
+           "confidence_threshold", "downsample", "tol_min", "tol_max", "ball_color_amounts"]
+    ball_amounts = [detector.ball_colors.count(
+        i) for i in range(len(detector.balls))]
     values = [ids, detector.ball_radius, detector.max_iterations, detector.confidence_threshold,
-              detector.downsample, detector.min_dist/detector.ball_radius, detector.max_dist/detector.ball_radius]
+              detector.downsample, detector.min_dist/detector.ball_radius, detector.max_dist/detector.ball_radius, ball_amounts]
+
     settings = dict(zip(ids, values))
-    return render_template('ransac.html', ball_nr=detector.number_of_objects, images_n_labels=list(zip(filenames, checkbox_labels)), settings=settings, nr_modeled=nr_modeled, nr_found=nr_found)
+    return render_template('ransac.html', ball_nr=detector.number_of_objects, color_nr=len(detector.balls), 
+    images_n_labels=list(zip(filenames, checkbox_labels)), settings=settings, nr_modeled=nr_modeled, 
+    nr_found=nr_found, colors=[ball.get_color_hexa() for ball in detector.balls])
 
 
 @app.route('/ransac/change')
@@ -535,9 +510,23 @@ def change_value():
     # except Exception as e:
     #     print("Couldn't change settings: ")
     #     print(e)
-    print(nrs_found, nrs_modeled)
+    # print(nrs_found, nrs_modeled)
     return jsonify(nr_modeled=nrs_modeled, nr_found=nrs_found)
     # return jsonify(nr_modeled=[0 for _ in detector.number_of_objects])
+
+import json
+@app.route('/ransac/change_amounts')
+def change_amounts():
+    detector = detector = get_hsv_detector()
+    amounts = json.loads(request.args.get('amounts'))
+    print(amounts)
+    try:
+        amounts = [int(amount) for amount in amounts]
+        detector.change_ball_colors(amounts)
+        return jsonify(response=0)
+    except Exception as e:
+        print(e)
+        return jsonify(response=-1)
 
 
 def rotate(origin, point, angle):

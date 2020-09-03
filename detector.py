@@ -340,25 +340,14 @@ class BallDetectorInC(ObjectDetectorInC):
 class HSVDetector(Detector):
     class BallHSV():
         '''
-            class used to represent a ball
+            class used to represent a ball as a cube in the HSV colorspace, with SV values only having a lower bound
             allows the user to specify HSV in the commonly used ways (float and any (0;n) range)
             choose htype = n to input values of H in (0;n) range, same for svtypes
             float assumes input in (0;1)
         '''
-        class Ball_t(Structure):
-            # this class is used to interface with RANSAC C
-            _fields_ = [("h_min", c_double),
-                        ("h_max", c_double),
-                        ("sat_min", c_double),
-                        ("val_min", c_double)]
-
         def __init__(self, h_mid=0, h_tolerance=0, sat_min=1, val_min=1, htype="float", svtypes="float"):
-            self.set_new_values(h_mid, h_tolerance, sat_min,
-                                val_min, htype=htype, svtypes=svtypes)
-            h_m, h_t, s_m, v_m = self.hsv_specs()
-            if h_m-h_t < 0:
-                h_m += 1
-            self.ball_t = self.Ball_t((h_m-h_t)*360, (h_m-h_t)*360, s_m, v_m)
+            self.set_new_values_tolerance(h_mid, h_tolerance, sat_min,
+                                          val_min, htype=htype, svtypes=svtypes)
 
         # HSV in 0-1
         def is_color_hsv(self, h, s, v):
@@ -387,10 +376,18 @@ class HSVDetector(Detector):
         def get_color_for_webpage_hidden_input(self):
             return "HSV({0}, {1}, {2})".format(self.h_mid, int(self.sat_min*256), int(self.val_min*256))
 
+        def set_new_values_range(self, h_min, h_max, sat_min, val_min, htype="float", svtypes="float"):
+            if h_min > h_max:
+                raise ValueError("h_min must be bigger than h_max")
+            h_mid = (h_max+h_min)/2
+            h_tol = (h_max-h_min)/2
+            self.set_new_values_tolerance(
+                h_mid, h_tol, sat_min, val_min, htype, svtypes)
+
         # allows the user to specify HSV in the commonly used ways (float and any (0;n) range)
-        def set_new_values(self, h_mid, h_tolerance, sat_min, val_min, htype="float", svtypes="float"):
+        def set_new_values_tolerance(self, h_mid, h_tolerance, sat_min, val_min, htype="float", svtypes="float"):
             # normalize everything to [0,1] (float is undestood to be in that range already)
-            if htype.isdigit():
+            if str(htype).isdigit():
                 self.h_mid = float(h_mid)/int(htype)
                 self.h_tolerance = float(h_tolerance)/int(htype)
             elif htype == "float":
@@ -400,20 +397,54 @@ class HSVDetector(Detector):
                 raise RuntimeError(
                     "Unknown htype, choose 'float' or any integer (i.e. '360')")
 
-            if svtypes.isdigit():
+            if not (0 <= self.h_mid <= 1) or not (0 <= self.h_tolerance <= 1):
+                raise ValueError("Unexpected values for h_mid/h_tolerance")
+
+            if str(svtypes).isdigit():
                 self.sat_min = float(sat_min)/int(svtypes)
                 self.val_min = float(val_min)/int(svtypes)
             elif svtypes == "float":
                 self.sat_min = float(sat_min)
                 self.val_min = float(val_min)
             else:
-                raise RuntimeError(
+                raise ValueError(
                     "Unknown svtypes, choose 'float' or any integer (i.e. '360')")
 
-            # print("Ball: ",self.h_mid, self.h_tolerance, self.sat_min, self.val_min)
+            if not (0 <= self.sat_min <= 1) or not (0 <= self.val_min <= 1):
+                raise ValueError("Unexpected values for h_mid/h_tol")
 
-        def hsv_specs(self):
+            self.ball_t = Ball_t(*self.hsv_specs_range(360, "float"))
+
+        def hsv_specs_tolerance(self):
             return self.h_mid, self.h_tolerance, self.sat_min, self.val_min
+
+        def hsv_specs_range(self, htype="float", svtypes="float"):
+            # values are saved in float and will always be returned as positive (i.e. H range of (0.9,1.1) is preferred over (-0.1,0.1))
+            h_mid = self.h_mid
+            h_tol=self.h_tolerance
+            if h_mid-h_tol < 0:
+                h_mid += 1
+            if str(htype).isdigit():
+                h_min = (h_mid-h_tol)*int(htype)
+                h_max = (h_mid+h_tol)*int(htype)
+            elif htype == "float":
+                h_min = (h_mid-h_tol)
+                h_max = (h_mid+h_tol)
+            else:
+                raise RuntimeError(
+                    "Unknown htype, choose 'float' or any integer (i.e. '360')")
+
+            if str(svtypes).isdigit():
+                val_min = self.val_min*int(svtypes)
+                sat_min = self.sat_min*int(svtypes)
+            elif svtypes == "float":
+                val_min = self.val_min
+                sat_min = self.sat_min
+            else:
+                raise ValueError(
+                    "Unknown svtypes, choose 'float' or any integer (i.e. '360')")
+
+            return h_min, h_max, val_min, sat_min
 
         def __repr__(self):
             return "<BallHSV(h={:.0f}° +-{:.0f}°, s>{:.0f}%, v>{:.0f}%)>".format(self.h_mid*360, self.h_tolerance*360, self.sat_min*100, self.val_min*100)
@@ -467,12 +498,13 @@ class HSVDetector(Detector):
 
     def save_color_settings(self, file_name):
         with open(file_name, 'wb') as settings_file:
-            pickle.dump(self.balls, settings_file, pickle.HIGHEST_PROTOCOL)
+            pickle.dump([self.balls, self.ball_colors],
+                        settings_file, pickle.HIGHEST_PROTOCOL)
 
     def load_color_settings(self, file_name):
         try:
             with open(file_name, 'rb') as settings_file:
-                self.balls = pickle.load(settings_file)
+                self.balls, self.ball_colors = pickle.load(settings_file)
         except:
             print("Settings file not found!")
 
@@ -572,11 +604,9 @@ class MultiColorDetector(HSVDetector):
 
 class RansacDetector(HSVDetector):
     def __init__(self, **kwargs):
-        nr_of_objects = kwargs.get("number_of_objects", [1])
-        l = [[i for _ in range(n)] for i, n in enumerate(nr_of_objects)]
-        self.ball_colors = [item for sublist in l for item in sublist]
-        self.ball_colors_c = (c_int*len(self.ball_colors))(*self.ball_colors)
-        self.number_of_objects = np.sum(nr_of_objects)
+        self.c_code_lock = threading.Lock()
+        ball_amounts = kwargs.get("number_of_objects", [1])
+        self.change_ball_colors(ball_amounts, True)
         self.ball_radius = kwargs.get("ball_diameter_pixels", 40)/2
         self.max_iterations = kwargs.get("max_iterations", 40)
         self.confidence_threshold = kwargs.get("confidence_threshold", 160)
@@ -588,40 +618,60 @@ class RansacDetector(HSVDetector):
 
         HSVDetector.__init__(self, **kwargs)
 
-        if len(self.balls) != len(nr_of_objects):
+        if len(self.balls) != len(ball_amounts):
             raise ValueError(
                 "'number_of_objects' specified in the JSON config file must be a list of length equal to the number of colors (specified by 'ball_colors')!")
 
         self.c_funcs = ransac_detector_ctypes.detector_funcs()
         self.init_table()
-        self.centers_c_ransac = self.list_as_carg(
-            [Coord_t(np.nan, np.nan) for _ in range(self.number_of_objects)])
-        self.centers_c_coope = self.list_as_carg(
-            [Coord_t(np.nan, np.nan) for _ in range(self.number_of_objects)])
         self.centers = [None for i in range(self.number_of_objects)]
-        self.lock = threading.Lock()
 
     def __repr__(self):
         return("RansacDetector")
 
+    def change_ball_colors(self, new_ball_colors, start=False):
+        new_ball_colors_filtered = [c for c in new_ball_colors if c != 0]
+        l = [[i for _ in range(n)]
+             for i, n in enumerate(new_ball_colors_filtered)]
+        self.c_code_lock.acquire()
+        self.ball_colors = [item for sublist in l for item in sublist]
+        self.ball_colors_c = (c_int*len(self.ball_colors))(*self.ball_colors)
+        self.number_of_objects = np.sum(new_ball_colors_filtered)
+        self.centers_c_ransac = self.list_as_carg(
+            [Coord_t(np.nan, np.nan) for _ in range(self.number_of_objects)])
+        self.centers_c_coope = self.list_as_carg(
+            [Coord_t(np.nan, np.nan) for _ in range(self.number_of_objects)])
+        if not start:
+            diff_centers = self.number_of_objects-len(self.centers)
+            diff_colors = len(
+                list(filter(lambda c: c != 0, new_ball_colors_filtered)))-len(self.balls)
+            if diff_centers > 0:
+                print(f"Adding {diff_centers} ball(s)")
+                for i in range(diff_centers):
+                    self.centers.append(None)
+            elif diff_centers < 0:
+                print(f"Removing {-diff_centers} ball(s)")
+                self.centers = self.centers[:self.number_of_objects]
+            if diff_colors > 0:
+                print(f"Adding {diff_colors} color(s)")
+                for i in range(diff_colors):
+                    self.balls.append(self.BallHSV(0, 0, 1, 1))
+            elif diff_colors < 0:
+                print(f"Removing {-diff_colors} color(s)")
+                self.balls = [ball for (i, ball) in enumerate(
+                    self.balls) if new_ball_colors[i] != 0]
+            print(self.ball_colors, self.number_of_objects,
+                  self.balls, self.centers)
+            self.save_color_settings()
+        self.c_code_lock.release()
+
     # necessary function - it initializes the RGB-HSV color table that is used for detection
+
     def init_table(self):
-        colors = [ball.hsv_specs() for ball in self.balls]
-        ball_ts = []
-        for color in colors:
-            # convert from floats to int
-            h_mid, h_tol, s_min, v_min = color
-            h_min = (h_mid-h_tol)*360
-            h_max = (h_mid+h_tol)*360
-            if h_min < 0:
-                h_min += 360
-                h_max += 360
-            # s_min *= 100
-            # v_min *= 100
-            ball_ts.append(Ball_t(h_min, h_max, s_min, v_min))
+        ball_ts=[ball.ball_t for ball in self.balls]
         self.rgb2balls = np.empty(shape=(256, 256, 256), dtype=np.uint8)
         self.c_funcs.init_table(self.rgb2balls, self.list_as_carg(
-            ball_ts), len(colors))
+            ball_ts), len(ball_ts))
 
     def list_as_carg(self, l, list_type=None):
         # v = array('I',t);assert v.itemsize == 4; addr, count = v.buffer_info();p = ctypes.cast(addr,ctypes.POINTER(ctypes.c_uint32))
@@ -649,6 +699,7 @@ class RansacDetector(HSVDetector):
 
             if image is not None:
                 # parse (x,y,theta) to (x,y) and None to np.nan (for numba)
+                self.c_code_lock.acquire()
                 prev_pos_c = [Coord_t(*center[:2]) if center is not None else Coord_t(
                     np.nan, np.nan) for center in self.centers]
                 previous_positions = Coords_t(len(prev_pos_c), len(
@@ -656,18 +707,17 @@ class RansacDetector(HSVDetector):
 
                 verbose = False
 
-                self.lock.acquire()
                 self.c_funcs.detect_balls(
                     self.rgb2balls, image, *image.shape[:2],
                     self.downsample, previous_positions, self.ball_colors_c, self.max_dx**2,
                     self.ball_radius, self.min_dist, self.max_dist, self.max_iterations,
                     self.confidence_threshold, verbose, self.centers_c_ransac, self.centers_c_coope)
-                self.lock.release()
                 # parse the result back
                 self.centers = [None if np.isnan(center.x) else (
                     center.x, center.y, NAN) for center in self.centers_c_coope]
-                # print(self.centers)
+                # print(self.centers, self.number_of_objects)
                 assert len(self.centers) == self.number_of_objects
+                self.c_code_lock.release()
             else:
                 print("Image is None")
                 self.centers = [None for i in range(self.number_of_objects)]
@@ -677,7 +727,7 @@ class RansacDetector(HSVDetector):
 
     def processImageOverlay(self, image, center, index=0):
         frame_start = self.frame_number
-        self.lock.acquire()
+        self.c_code_lock.acquire()
 
         def set_shade_visible(im, color, alpha=255):
             im[:, :, 3] = (alpha * (im[:, :, 3] == color)).astype(np.uint8)
@@ -731,26 +781,24 @@ class RansacDetector(HSVDetector):
         ball_coords_ls = self.list_as_carg(
             [c_size_t(0) for i in range(max(self.ball_colors)+1)])
 
-        modeled_c = Indexes_t(0,0,POINTER(c_int)())
-        
+        modeled_c = Indexes_t(0, 0, POINTER(c_int)())
+
         lsq_border_contour = np.zeros_like(seg_mask)
         ransac_contour = np.zeros_like(seg_mask)
         ransac_tolerance = np.zeros_like(seg_mask)
         lsq_modeled_contour = np.zeros_like(seg_mask)
 
-
         # get segmentation
         self.c_funcs.get_ball_pixels(
-            image, width, height, len(self.balls),self.rgb2balls, self.downsample, seg_mask, ball_pixels_c)
+            image, width, height, len(self.balls), self.rgb2balls, self.downsample, seg_mask, ball_pixels_c)
         # print([[c.x,c.y] for c in ball_pixels_c[0].coords[:ball_pixels_c[0].length]])
         # get border (for the color specified by index)
         self.c_funcs.get_border(seg_mask, width, height, byref(ball_pixels_c[index]), prev_pos_c,
-        self.downsample, self.max_dx**2, border_mask, group_mask, byref(group_index_c),byref(border_coords_c))
+                                self.downsample, self.max_dx**2, border_mask, group_mask, byref(group_index_c), byref(border_coords_c))
 
         print(f"found {border_coords_c.length} border coords")
         border_coords = np.array([[border_coords_c.coords[i].x, border_coords_c.coords[i].y]
                                   for i in range(border_coords_c.length)])
-
 
         if border_coords_c.length > 0:
             self.c_funcs.ransac(border_coords_c, self.ball_radius, self.min_dist,
@@ -758,9 +806,10 @@ class RansacDetector(HSVDetector):
             new_center = [new_center_c.x, new_center_c.y]
             if not np.isnan(new_center).any():
 
-                self.c_funcs.find_modeled_pixels(byref(new_center_c), self.max_dx**2, self.min_dist, self.max_dist, byref(border_coords_c), byref(modeled_c))
+                self.c_funcs.find_modeled_pixels(byref(
+                    new_center_c), self.min_dist, self.max_dist, byref(border_coords_c), byref(modeled_c))
                 modeled_coords = [list(border_coords[i])
-                                for i in modeled_c.indexes[:modeled_c.length]]
+                                  for i in modeled_c.indexes[:modeled_c.length]]
                 # print(self.max_dx, self.min_dist, self.max_dist)
                 print(f"modeled {modeled_c.length} pixels")
 
@@ -769,11 +818,13 @@ class RansacDetector(HSVDetector):
                 ransac_tolerance = make_circle(new_center, self.ball_radius, [
                     self.ball_radius-self.min_dist, self.max_dist-self.ball_radius])
                 coope_center = coope_fit(modeled_coords)
-                lsq_border_contour = make_circle(coope_center, self.ball_radius)
+                lsq_border_contour = make_circle(
+                    coope_center, self.ball_radius)
 
                 if len(border_coords) > 0 and len(modeled_coords) > 0:
                     coope_center = coope_fit(modeled_coords)
-                    lsq_modeled_contour = make_circle(coope_center, self.ball_radius)
+                    lsq_modeled_contour = make_circle(
+                        coope_center, self.ball_radius)
                 else:
                     lsq_modeled_contour = np.zeros_like(seg_mask)
 
@@ -794,7 +845,7 @@ class RansacDetector(HSVDetector):
         lsq_modeled_contour = BW_to_RGBA(lsq_modeled_contour, 1, modeled_color)
         lsq_border_contour = BW_to_RGBA(
             lsq_border_contour, 1, lsq_border_color)
-        self.lock.release()
+        self.c_code_lock.release()
         while(self.frame_number == frame_start):
             continue
         modeled_l = modeled_c.length if border_coords_c.length > 0 else 0
