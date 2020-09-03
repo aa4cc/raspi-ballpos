@@ -413,7 +413,6 @@ def set_colors():
     MultiDetector.save_color_settings()
     return "OK"
 
-
 def generate_images(detector):
     if not isinstance(detector, RansacDetector):
         return "This page only works with RansacDetector"
@@ -421,7 +420,6 @@ def generate_images(detector):
     nrs_found = []
     nrs_modeled = []
     for i, center in enumerate(detector.centers):
-        print(center)
         image = getImage()
         if center is None:
             images.append([np.zeros_like(image) for i in range(10)])

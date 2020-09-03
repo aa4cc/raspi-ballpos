@@ -345,6 +345,7 @@ class HSVDetector(Detector):
             choose htype = n to input values of H in (0;n) range, same for svtypes
             float assumes input in (0;1)
         '''
+
         def __init__(self, h_mid=0, h_tolerance=0, sat_min=1, val_min=1, htype="float", svtypes="float"):
             self.set_new_values_tolerance(h_mid, h_tolerance, sat_min,
                                           val_min, htype=htype, svtypes=svtypes)
@@ -421,7 +422,7 @@ class HSVDetector(Detector):
         def hsv_specs_range(self, htype="float", svtypes="float"):
             # values are saved in float and will always be returned as positive (i.e. H range of (0.9,1.1) is preferred over (-0.1,0.1))
             h_mid = self.h_mid
-            h_tol=self.h_tolerance
+            h_tol = self.h_tolerance
             if h_mid-h_tol < 0:
                 h_mid += 1
             if str(htype).isdigit():
@@ -498,13 +499,12 @@ class HSVDetector(Detector):
 
     def save_color_settings(self, file_name):
         with open(file_name, 'wb') as settings_file:
-            pickle.dump([self.balls, self.ball_colors],
-                        settings_file, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(self.balls, settings_file, pickle.HIGHEST_PROTOCOL)
 
     def load_color_settings(self, file_name):
         try:
             with open(file_name, 'rb') as settings_file:
-                self.balls, self.ball_colors = pickle.load(settings_file)
+                self.balls = pickle.load(settings_file)
         except:
             print("Settings file not found!")
 
@@ -617,10 +617,8 @@ class RansacDetector(HSVDetector):
         self.max_dist = border_tolerance_coeffs[1]*self.ball_radius
 
         HSVDetector.__init__(self, **kwargs)
-
-        if len(self.balls) != len(ball_amounts):
-            raise ValueError(
-                "'number_of_objects' specified in the JSON config file must be a list of length equal to the number of colors (specified by 'ball_colors')!")
+        if ('params' in locals() or 'params' in globals()) and params['load_old_color_settings']:
+            self.load_color_settings()
 
         self.c_funcs = ransac_detector_ctypes.detector_funcs()
         self.init_table()
@@ -668,7 +666,7 @@ class RansacDetector(HSVDetector):
     # necessary function - it initializes the RGB-HSV color table that is used for detection
 
     def init_table(self):
-        ball_ts=[ball.ball_t for ball in self.balls]
+        ball_ts = [ball.ball_t for ball in self.balls]
         self.rgb2balls = np.empty(shape=(256, 256, 256), dtype=np.uint8)
         self.c_funcs.init_table(self.rgb2balls, self.list_as_carg(
             ball_ts), len(ball_ts))
@@ -687,9 +685,24 @@ class RansacDetector(HSVDetector):
 
     def save_color_settings(self):
         super().save_color_settings('color_settings_ransac.pkl')
+        with open('other_settings_ransac', 'wb') as settings_file:
+            pickle.dump([self.ball_colors, self.ball_radius, self.downsample, self.confidence_threshold, self.min_dist,
+                         self.max_dist, self.max_iterations, self.number_of_objects, self.max_dx], settings_file, pickle.HIGHEST_PROTOCOL)
 
     def load_color_settings(self):
-        super().load_color_settings('color_settings_ransac.pkl')
+        try:
+            with open('other_settings_ransac', 'rb') as settings_file:
+                self.ball_colors, self.ball_radius, self.downsample, self.confidence_threshold, self.min_dist, self.max_dist, self.max_iterations, self.number_of_objects,self.max_dx = pickle.load(settings_file)
+            self.ball_colors_c = (
+                c_int*len(self.ball_colors))(*self.ball_colors)
+            super().load_color_settings('color_settings_ransac.pkl')    
+        except:
+            print("Settings file not found!")
+        self.centers = [None for _ in range(self.number_of_objects)]
+        self.centers_c_ransac = self.list_as_carg(
+            [Coord_t(np.nan, np.nan) for _ in range(self.number_of_objects)])
+        self.centers_c_coope = self.list_as_carg(
+            [Coord_t(np.nan, np.nan) for _ in range(self.number_of_objects)])
 
     # finds centers of all the balls in the image (if possible)
     def processImage(self, frame_number, image, save=False):
@@ -796,7 +809,7 @@ class RansacDetector(HSVDetector):
         self.c_funcs.get_border(seg_mask, width, height, byref(ball_pixels_c[index]), prev_pos_c,
                                 self.downsample, self.max_dx**2, border_mask, group_mask, byref(group_index_c), byref(border_coords_c))
 
-        print(f"found {border_coords_c.length} border coords")
+        # print(f"found {border_coords_c.length} border coords")
         border_coords = np.array([[border_coords_c.coords[i].x, border_coords_c.coords[i].y]
                                   for i in range(border_coords_c.length)])
 
@@ -811,7 +824,7 @@ class RansacDetector(HSVDetector):
                 modeled_coords = [list(border_coords[i])
                                   for i in modeled_c.indexes[:modeled_c.length]]
                 # print(self.max_dx, self.min_dist, self.max_dist)
-                print(f"modeled {modeled_c.length} pixels")
+                # print(f"modeled {modeled_c.length} pixels")
 
                 # create circle overlay(s)
                 ransac_contour = make_circle(new_center, self.ball_radius)
