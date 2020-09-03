@@ -9,7 +9,7 @@ If your compilation fails, you might need to disable pre-compiled headers by add
 
 ## Installation
 1) Enable Raspberry Camera module by running ```sudo raspi-config``` in case you haven't already done it.
-1) Install the required Python modules by running ```sudo pip3 install picamera click flask matplotlib profilehooks screeninfo imutils RPi.GPIO```
+1) Install the required Python modules by running ```sudo pip3 install picamera click flask matplotlib profilehooks screeninfo imutils RPi.GPIO flask_bootstrap flask_colorpicker scipy```
 1) Clone this repository by ```git clone https://github.com/aa4cc/raspi-ballpos.git```
 1) Compile _sharemem_ module by running ```cd raspi-ballpos/sharemem; ./install```
 1) Go back by ```cd ../..```
@@ -65,3 +65,7 @@ URL endpoints:
 - ```/restart``` - Restart the image detection subsystem.
 - ```/ball_colors``` - UI for live color settings, only works with MultiColorDetector. Example of how to properly configure such a detector can be found in `config_multi.json`. Use GET option `i=#` (i.e. URL `/ball_colors?i=100`) to get a custom number of frames from which to calculate mean and standard deviation (default 5).
 - ```/triangle``` - Shows the perceived triangle along with its centroid and all ball centers. Currently, balls used for triangle are hard-coded as 1, 4, 5.
+- ```/ransac``` - Ransac settings
+
+# Additional notes
+- If you're controlling RPi remotely over SSH and wish to view the preview on a connected screen, you need to set ```export DISPLAY=:0.0```. https://stackoverflow.com/questions/13046624/how-to-permanently-export-a-variable-in-linux
