@@ -13,8 +13,8 @@ import colorsys
 import pickle
 import sys
 # from ransac import ransac
-import ransac_detector_ctypes
-from ransac_detector_ctypes import Coord_t, Ball_t, Coords_t, Indexes_t, IntCoords_t, IntCoord_t
+from ransac_detector import ransac_detector_ctypes
+from ransac_detector.ransac_detector_ctypes import Coord_t, Ball_t, Coords_t, Indexes_t, IntCoords_t, IntCoord_t
 import threading
 
 sys.path
@@ -603,6 +603,7 @@ class MultiColorDetector(HSVDetector):
 
 
 class RansacDetector(HSVDetector):
+    # uses a RANSAC algorithm written in C
     def __init__(self, **kwargs):
         self.c_code_lock = threading.Lock()
         ball_amounts = kwargs.get("number_of_objects", [1])
@@ -628,6 +629,7 @@ class RansacDetector(HSVDetector):
         return("RansacDetector")
 
     def change_ball_colors(self, new_ball_colors, start=False):
+        # changes how many of each color the algorithm will be looking for
         new_ball_colors_filtered = [c for c in new_ball_colors if c != 0]
         l = [[i for _ in range(n)]
              for i, n in enumerate(new_ball_colors_filtered)]
@@ -663,9 +665,9 @@ class RansacDetector(HSVDetector):
             self.save_settings()
         self.c_code_lock.release()
 
-    # necessary function - it initializes the RGB-HSV color table that is used for detection
 
     def init_table(self):
+        # necessary function - it initializes the RGB-HSV color table that is used for detection
         ball_ts = [ball.ball_t for ball in self.balls]
         self.rgb2balls = np.empty(shape=(256, 256, 256), dtype=np.uint8)
         self.c_funcs.init_table(self.rgb2balls, self.list_as_carg(
@@ -686,16 +688,15 @@ class RansacDetector(HSVDetector):
     def save_settings(self):
         super().save_color_settings('color_settings_ransac.pkl')
         with open('other_settings_ransac', 'wb') as settings_file:
-            pickle.dump([self.ball_colors, self.ball_radius, self.downsample, self.confidence_threshold, self.min_dist,
+            pickle.dump([self.balls,self.ball_colors, self.ball_radius, self.downsample, self.confidence_threshold, self.min_dist,
                          self.max_dist, self.max_iterations, self.number_of_objects, self.max_dx], settings_file, pickle.HIGHEST_PROTOCOL)
 
     def load_settings(self):
         try:
             with open('other_settings_ransac', 'rb') as settings_file:
-                self.ball_colors, self.ball_radius, self.downsample, self.confidence_threshold, self.min_dist, self.max_dist, self.max_iterations, self.number_of_objects,self.max_dx = pickle.load(settings_file)
+                self.balls,self.ball_colors, self.ball_radius, self.downsample, self.confidence_threshold, self.min_dist, self.max_dist, self.max_iterations, self.number_of_objects,self.max_dx = pickle.load(settings_file)
             self.ball_colors_c = (
-                c_int*len(self.ball_colors))(*self.ball_colors)
-            super().load_color_settings('color_settings_ransac.pkl')    
+                c_int*len(self.ball_colors))(*self.ball_colors) 
         except:
             print("Settings file not found!")
         self.centers = [None for _ in range(self.number_of_objects)]
@@ -704,8 +705,8 @@ class RansacDetector(HSVDetector):
         self.centers_c_coope = self.list_as_carg(
             [Coord_t(np.nan, np.nan) for _ in range(self.number_of_objects)])
 
-    # finds centers of all the balls in the image (if possible)
     def processImage(self, frame_number, image, save=False):
+        # finds centers of all the balls in the image (if possible)
         self.frame_number = frame_number
         try:
             self.images["image"] = image
@@ -739,6 +740,7 @@ class RansacDetector(HSVDetector):
             logger.exception(e)
 
     def processImageOverlay(self, image, center, index=0):
+        # processes image (used for the webpage)
         frame_start = self.frame_number
         self.c_code_lock.acquire()
 

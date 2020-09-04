@@ -23,17 +23,29 @@
             "type": "detector.RansacDetector",
             "name": "Blue ransac",
             "ball_colors": [{
-                "h_mid": 240,
-                "h_tolerance": 15,
+                "h_mid": 220,
+                "h_tolerance": 30,
                 "sat_min": 40,
                 "val_min": 40
+			},{
+                "h_mid": 313,
+                "h_tolerance": 20,
+                "sat_min": 31,
+                "val_min": 52
+			},{
+                "h_mid": 313,
+                "h_tolerance": 20,
+                "sat_min": 31,
+                "val_min": 52
 			}],
-			"downsample": 2,
-			"number_of_objects": 6,
+			"downsample": 1,
+			"number_of_objects": [2,1,1],
 			"ball_diameter_pixels": 40,
-			"max_iterations": 40,
-			"confidence_threshold": 50
+			"max_iterations": 100,
+			"confidence_threshold": 140,
+			"border_tolerance_coeffs": [0.7,1.3]
     }
     ]
 }
     
+

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # from numba import jit
 from ctypes import byref
-from ransac_detector_ctypes import Ball_t
+from ransac_detector.ransac_detector_ctypes import Ball_t
 import lamp
 import processor
 import math
