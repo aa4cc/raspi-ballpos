@@ -1,3 +1,3 @@
-cd multi_color_detector && ./install
-cd ../sharemem && ./install
-cd ../ransac_detector && ./install
+cd multi_color_detector && chmod +x install && ./install
+cd ../sharemem && chmod +x install && ./install
+cd ../ransac_detector && chmod +x install && ./install
