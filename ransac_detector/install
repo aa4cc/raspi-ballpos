@@ -1,0 +1,1 @@
+g++ coope_fit.cpp -shared -fPIC -o libcoope_fit.so && cc -fPIC -shared -o ransac_detector.so ransac_detector.c -L. -lcoope_fit -Wl,-rpath . && mv libcoope_fit.so ../ && mv ransac_detector.so ../
