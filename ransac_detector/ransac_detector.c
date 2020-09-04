@@ -777,7 +777,7 @@ void detect_ball(IntCoords_t *border, Indexes_t *group, Coord_t *prev_pos,
     find_modeled_pixels(center_ransac, min_dist, max_dist, set_to_check,
                         &modeled_ransac);
     *center_coope = lsq_on_modeled(set_to_check, &modeled_ransac);
-    find_modeled_pixels(center_coope,0.9*r,1.1*r,&modeled_ransac,&modeled_coope);
+    find_modeled_pixels(center_coope,0,1.1*r, set_to_check,&modeled_coope);
     remove_pixels(border, group, &modeled_coope, only_group);
   }
 }
