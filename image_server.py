@@ -6,7 +6,7 @@ from socketserver import StreamRequestHandler, TCPServer
 from threading import Thread
 
 import numpy as np
-import cv2
+# import cv2
 
 METHOD_MAP={
     'GET': "http",

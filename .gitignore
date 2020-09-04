@@ -120,6 +120,12 @@ config.py
 *.elf
 *_ert_rtw
 
+# ignore generated files
+*.so
+*.npy
+*.dat
+*.pkl
+
 # Created by https://www.gitignore.io/api/visualstudiocode
 # Edit at https://www.gitignore.io/?templates=visualstudiocode
 
