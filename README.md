@@ -1,22 +1,16 @@
 # RaspiBallPos
 
-## Requirements
-- Python3
-- OpenCV3
-Follow the instructions in [this guide](http://www.pyimagesearch.com/2016/04/18/install-guide-raspberry-pi-3-raspbian-jessie-opencv-3/) to install OpenCV3 for python3.
-We recommend not using `virtualenvs` on Raspberry Pi if this is the only project you'll be running on it (it is not necessary).
-If your compilation fails, you might need to disable pre-compiled headers by adding the `-DENABLE_PRECOMPILED_HEADERS=OFF` flag when running cmake in the guide above.
-
 ## Installation
 1) Enable Raspberry Camera module by running ```sudo raspi-config``` in case you haven't already done it.
 1) Install the required Python modules by running ```sudo pip3 install picamera click flask matplotlib profilehooks screeninfo imutils RPi.GPIO flask_bootstrap flask_colorpicker scipy```
+1) Install the eigen library by ```sudo apt install libeigen3-dev```
 1) Clone this repository by ```git clone https://github.com/aa4cc/raspi-ballpos.git```
-1) Compile _sharemem_ module by running ```cd raspi-ballpos/sharemem; ./install```
+1) Compile the necessary modules by running ```./compile_libraries```
 1) Go back by ```cd ../..```
 1) Run ```cp raspi-ballpos/config.json_sample config.json```
 1) Edit your configuration using your favourite editor (do not forget to specify screen resolution, otherwise the detected object position will not be displayed correctly).
 1) Run ```cd raspi-ballpos```
-1) Run ```python3 vision.py -ivp``` and see the result.
+1) Run ```python3 vision.py -vp``` and see the result.
 
 ### Automatic startup
 1) In order to start the process automatically upon booting, copy ```vision.service``` into ```/etc/systemd/system/``` (run ```sudo cp vision.service /etc/systemd/system/vision.service```).
