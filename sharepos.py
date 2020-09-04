@@ -16,12 +16,12 @@ class SharedPosition(SharedMemory):
         if key is None:
             key = KEY
 
-        self.count = 100#count
+        self.count = 100  # count
         print(f"Allocating memory for {self.count} objects...")
         self._format = format
         self._itemsize = calcsize(format)
 
-        SharedMemory.__init__(self, key=key, size=count *
+        SharedMemory.__init__(self, key=key, size=self.count *
                               self._itemsize, create=create)
 
     def __getitem__(self, n):
