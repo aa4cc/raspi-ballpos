@@ -59,7 +59,7 @@ URL endpoints:
 - ```/restart``` - Restart the image detection subsystem.
 - ```/ball_colors``` - UI for live color settings, only works with MultiColorDetector. Example of how to properly configure such a detector can be found in `config_multi.json`. Use GET option `i=#` (i.e. URL `/ball_colors?i=100`) to get a custom number of frames from which to calculate mean and standard deviation (default 5).
 - ```/triangle``` - Shows the perceived triangle along with its centroid and all ball centers. Currently, balls used for triangle are hard-coded as 1, 4, 5.
-- ```/ransac``` - Ransac settings
+- ```/ransac``` - Ransac settings (see the [manual](ransac_manual.md) for more info)
 
 # Additional notes
 - If you're controlling RPi remotely over SSH and wish to view the preview on a connected screen, you need to set ```export DISPLAY=:0.0```. https://stackoverflow.com/questions/13046624/how-to-permanently-export-a-variable-in-linux
