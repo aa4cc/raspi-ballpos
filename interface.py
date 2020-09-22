@@ -410,7 +410,7 @@ def set_colors():
     if not isinstance(MultiDetector, Detector):
         return MultiDetector
     MultiDetector.init_table()
-    MultiDetector.save_color_settings()
+    MultiDetector.save_settings()
     return "OK"
 
 def generate_images(detector):
