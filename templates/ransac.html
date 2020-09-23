@@ -118,7 +118,7 @@
                 <div class="image-stack">
                     {%for image,_ in images_n_labels%}
                     <img class="{{image}} {{image}}-{{i}}" src="/static/{{image}}-{{i}}.png"
-                        {%if image!= 'image_crop'%}style="visibility: hidden;\" {%endif%} />
+                        {%if image!= 'image_crop'%}style="visibility: hidden;" {%endif%} />
                     {%endfor%}
                 </div>
                 <p id="modeled-{{i}}">modeled: {{nr_modeled[i]}} (found: {{nr_found[i]}})</p>
