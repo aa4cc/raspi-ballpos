@@ -901,6 +901,7 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
                   centers_coope + i, max_dx2, r, min_dist, max_dist, max_iter,
                   confidence_thrs, verbose);
       if (valid_coord(centers_ransac[i])) {
+        // printf("ball %d valid on first run\n",i);
         skipped[i] = false;
       }
     }
@@ -921,9 +922,15 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
   // if the ball wasn't found, return NAN coords
   Coord_t not_found = {NAN, NAN};
   for (int i = 0; i < prev_pos->length; ++i) {
+    // printf("%d ",skipped[i]);
     if (skipped[i]) {
-      *centers_ransac = not_found;
-      *centers_coope = not_found;
+      centers_ransac[i].x = NAN;//not_found;
+      centers_ransac[i].y = NAN;//
+      centers_coope[i].x = NAN;//not_found;
+      centers_coope[i].y = NAN;//
+    } else{
     }
+      // printf("[%f, %f] ",centers_coope[i].x,centers_coope[i].y);
   }
+  // printf("\n");
 }
