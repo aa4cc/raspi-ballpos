@@ -249,7 +249,7 @@ void get_segmentation_mask(uint8_t *img, int width, int height, uint8_t *mask,
       Color_t *c = (Color_t *)pixel(img, x, y); // 3x8bit HSV
       hsv_t hsv={((float)c->r)/256*360,((float)c->g)/256,((float)c->b)/256};
       if (((ball->h_min < hsv.h && ball->h_max > hsv.h) ||
-           (ball->h_min < hsv.h + 256 && ball->h_max > hsv.h + 256)) &&
+           (ball->h_min < hsv.h + 360 && ball->h_max > hsv.h + 360)) &&
           ball->sat_min < hsv.s && hsv.v > ball->val_min) {
         mask[image_index(x, y)] = 0;
       } else {
@@ -854,7 +854,7 @@ void detect_balls(uint8_t *rgb_to_balls_map, uint8_t *img, int width,
 
   get_ball_pixels(img, width, height, number_of_colors, rgb_to_balls_map, step,
                   segmentation_mask, ball_pixels);
-
+  
   // find border
   static IntCoords_t border = {0, 0, NULL};
   static Indexes_t *groups = NULL;
