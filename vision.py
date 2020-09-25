@@ -2,6 +2,7 @@
 
 import time
 import picamera
+import pickle
 import numpy as np
 # import cv2
 import socket
@@ -34,6 +35,7 @@ NAN = float('nan')
 scale = None
 offset = None
 
+wb_settings_filename='white_balance'
 
 def get_sreen_resolution():
     try:
@@ -46,6 +48,16 @@ def get_sreen_resolution():
                 "Calculations for overlay not supported without X server, or screen resolution specified in config")
         return params['screen_resolution']
 
+
+def change_wb(wb, camera):
+    camera.awb_gains = wb
+    with open(wb_settings_filename, 'wb') as settings_file:
+        pickle.dump(wb, settings_file, pickle.HIGHEST_PROTOCOL)
+
+def load_saved_wb(camera):
+    with open(wb_settings_filename, 'rb') as settings_file:
+        camera.awb_gains = pickle.load(settings_file)
+    print("Old wb loaded!")
 
 def setup(camera, params, processor):
     camera.resolution = params["resolution"]
@@ -107,13 +119,14 @@ def setup(camera, params, processor):
     camera.exposure_mode = 'off'
     g = camera.awb_gains
     camera.awb_mode = 'off'
-
-    if all(params["white_balance"]):
+    if os.path.isfile(wb_settings_filename) and params['load_old_color_settings']:
+        load_saved_wb(camera)
+    elif all(params["white_balance"]):
         print("Manual white balance: ", params["white_balance"])
-        camera.awb_gains = params["white_balance"]
+        change_wb(params["white_balance"],camera)
     else:
         print("Fixed auto white balance: {}".format(camera.awb_gains))
-        camera.awb_gains = g
+        change_wb(g,camera)
 
     print("Exposition time: {}".format(camera.exposure_speed/1000))
     print("camera.iso: {}".format(camera.iso))
@@ -146,30 +159,30 @@ def run(params, processor):
                 if params["preview"] and params["overlay"]:
                     if len(centers) > len(camera.overlays):
                         while len(centers) > len(camera.overlays):
-                            overlays.new(camera, offset=offset, size=params["overlay"], 
-                                        alpha=params["overlay_alpha"], scale=scale)
+                            overlays.new(camera, offset=offset, size=params["overlay"],
+                                         alpha=params["overlay_alpha"], scale=scale)
                     if len(centers) < len(camera.overlays):
                         for i in range(len(centers), len(camera.overlays)):
                             camera.remove_overlay(camera.overlays[i])
                     for o, center in zip(camera.overlays, centers):
                         if center:
                             overlays.move(
-                                o, center, alpha = params["overlay_alpha"])
+                                o, center, alpha=params["overlay_alpha"])
                         else:
                             overlays.move(o)
                 # fps.update()
-            processor.callback=position_callback
+            processor.callback = position_callback
 
             if params['web_interface']:
-                web_interface.camera=camera  # for access with webserver
-                web_interface.processor=processor
+                web_interface.camera = camera  # for access with webserver
+                web_interface.processor = processor
 
             if params["video_record"]:
                 try:
-                    fName=os.path.join(params['img_path'], 'video.h264')
+                    fName = os.path.join(params['img_path'], 'video.h264')
                     camera.start_recording(
-                        fName, splitter_port = 2, resize = params["resolution"])
-                    recording=True
+                        fName, splitter_port=2, resize=params["resolution"])
+                    recording = True
                     print("Recording video to:", fName)
                 except FileNotFoundError:
                     print(
@@ -179,14 +192,14 @@ def run(params, processor):
             # fps = FPS().start()
             print("Starting capture")
             camera.capture_sequence(
-                processor, use_video_port = True, format = "rgb")
+                processor, use_video_port=True, format="rgb")
 
         finally:
             if fps:
                 fps.stop()
 
             if params["video_record"] and recording:
-                camera.stop_recording(splitter_port = 2)
+                camera.stop_recording(splitter_port=2)
                 print("Stop recording...")
 
             if params["preview"]:
@@ -195,7 +208,7 @@ def run(params, processor):
             if fps:
                 print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
                 print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
-        shared_position=None
+        shared_position = None
 
 
 def service(params, processor):
@@ -211,27 +224,27 @@ def service(params, processor):
 
 
 @ click.command()
-@ click.option('--config-file', '-c', default = "../config.json", type = click.Path(exists=True), help = "Path to config file")
-@ click.option('--verbose', '-v', count = True, default = False, help = 'Display time needed for processing of each frame and the measured positions.')
-@ click.option('--preview', '-p', is_flag = True, default = False, help = "Show preview on HDMI or display")
-@ click.option('--video-record', is_flag = True, default = False, help = "Record video")
-@ click.option('--img-path', type = str, default = './img/', help = "Path to store images and videos ideally ramdisk")
-@ click.option('--interactive', '-i', is_flag = True, help = "Start interactive Python console, to get realtime access to PiCamera object for testing purposes")
-@ click.option('--multicore', is_flag = True, help = "Start detectors in different processes to speedup detection")
-@ click.option('--web-interface/--no-web-interface', is_flag = True, default = True, help = "Enable/Disable web interface on port 5001 (default: enable)")
-@ click.option('--load-old-color-settings', '-l', is_flag = True, default = False, help = "Instead of loading color settings from JSON, values from last run will be used (for MultiColorDetector)")
-@ click.option('--neural-network', '-n', is_flag = True, default = False, help = 'Whether to use neural network or not (not working yet)')
+@ click.option('--config-file', '-c', default="../config.json", type=click.Path(exists=True), help="Path to config file")
+@ click.option('--verbose', '-v', count=True, default=False, help='Display time needed for processing of each frame and the measured positions.')
+@ click.option('--preview', '-p', is_flag=True, default=False, help="Show preview on HDMI or display")
+@ click.option('--video-record', is_flag=True, default=False, help="Record video")
+@ click.option('--img-path', type=str, default='./img/', help="Path to store images and videos ideally ramdisk")
+@ click.option('--interactive', '-i', is_flag=True, help="Start interactive Python console, to get realtime access to PiCamera object for testing purposes")
+@ click.option('--multicore', is_flag=True, help="Start detectors in different processes to speedup detection")
+@ click.option('--web-interface/--no-web-interface', is_flag=True, default=True, help="Enable/Disable web interface on port 5001 (default: enable)")
+@ click.option('--load-old-color-settings', '-l', is_flag=True, default=False, help="Instead of loading color settings from JSON, values from last run will be used (for MultiColorDetector)")
+@ click.option('--neural-network', '-n', is_flag=True, default=False, help='Whether to use neural network or not (not working yet)')
 def main(**kwargs):
     # load json and kwargs and pass it to objects to use
     params.load(kwargs["config_file"])
     params.update(kwargs)
-    detector.params=params
-    processor.params=params
-    web_interface.params=params
+    detector.params = params
+    processor.params = params
+    web_interface.params = params
 
-    camera=None
-    proc=None
-    mask=None
+    camera = None
+    proc = None
+    mask = None
 
     print('FPS: {}'.format(params["frame_rate"]))
 
@@ -239,22 +252,22 @@ def main(**kwargs):
         print('Verbose: {}'.format(params['verbose']))
 
     if params['lamp_control'] is not None:
-        lamp.pin=params['lamp_control']
-        lamp.delay=params['lamp_delay']
+        lamp.pin = params['lamp_control']
+        lamp.delay = params['lamp_delay']
         lamp.init(not params['lamp_manual'])
 
     if params['mask'] is not None:
         if os.path.isfile(params['mask']):
-            mask=cv2.imread(params['mask'], 0)//255
+            mask = cv2.imread(params['mask'], 0)//255
         else:
             raise Exception('The mask with the given filename was not found!')
 
     if params["multicore"]:
-        proc_class=processor.MultiCore
+        proc_class = processor.MultiCore
     else:
-        proc_class=processor.SingleCore
+        proc_class = processor.SingleCore
 
-    proc=proc_class(mask = mask)
+    proc = proc_class(mask=mask)
 
     if not params["interactive"]:
         try:
@@ -272,26 +285,26 @@ def main(**kwargs):
         import rlcompleter
         from pprint import pprint
 
-        thread=threading.Thread(
-            name = "Camera thread", args = (params, proc), target = service)
+        thread = threading.Thread(
+            name="Camera thread", args=(params, proc), target=service)
         thread.start()
 
         from interface import app
 
-        vars=globals()
+        vars = globals()
         vars.update(locals())
         readline.set_completer(rlcompleter.Completer(vars).complete)
         readline.parse_and_bind("tab: complete")
 
-        code.interact(local = vars)
+        code.interact(local=vars)
 
         if proc is not None:
             proc.stop()
-        thread.join(timeout = 5)
+        thread.join(timeout=5)
 
     if params['lamp_control'] is not None:
         lamp.deinit()
 
 
 if __name__ == '__main__':
-    main(default_map = params.data)
+    main(default_map=params.data)

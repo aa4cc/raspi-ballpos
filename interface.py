@@ -207,7 +207,7 @@ def wb_value():
     # print((list(map(float(np.mean([image[:][:][i] for i in range(3)], axis=0))))))
     return jsonify([np.mean(b), np.mean(g), np.mean(r)])
 
-
+from vision import change_wb
 @app.route('/wb/value/<int:a>,<int:b>')
 @app.route('/wb/value/<float:a>,<int:b>')
 @app.route('/wb/value/<int:a>,<float:b>')
@@ -215,7 +215,7 @@ def wb_value():
 def wb_set(a, b):
     print(a, b)
     # image_wb()
-    app.camera.awb_gains = (a, b)
+    change_wb((a,b),app.camera)
     return "OK"
 
 
