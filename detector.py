@@ -631,6 +631,8 @@ class RansacDetector(HSVDetector):
     def change_ball_colors(self, new_ball_colors, start=False):
         # changes how many of each color the algorithm will be looking for
         new_ball_colors_filtered = [c for c in new_ball_colors if c != 0]
+        if len(new_ball_colors_filtered)==0:
+            raise ValueError("It is necessary to set at least one ball for detection!")
         l = [[i for _ in range(n)]
              for i, n in enumerate(new_ball_colors_filtered)]
         self.c_code_lock.acquire()
@@ -694,7 +696,9 @@ class RansacDetector(HSVDetector):
     def load_settings(self):
         try:
             with open('other_settings_ransac', 'rb') as settings_file:
-                self.balls,self.ball_colors, self.ball_radius, self.downsample, self.confidence_threshold, self.min_dist, self.max_dist, self.max_iterations, self.number_of_objects,self.max_dx = pickle.load(settings_file)
+                self.balls,self.ball_colors, self.ball_radius, self.downsample, \
+                        self.confidence_threshold, self.min_dist, self.max_dist, self.max_iterations, \
+                            self.number_of_objects,self.max_dx = pickle.load(settings_file)
             self.ball_colors_c = (
                 c_int*len(self.ball_colors))(*self.ball_colors) 
         except:
