@@ -719,7 +719,7 @@ class RansacDetector(HSVDetector):
                 # parse (x,y,theta) to (x,y) and None to np.nan (for numba)
                 self.c_code_lock.acquire()
                 prev_pos_c = [Coord_t(*center[:2]) if center is not None else Coord_t(
-                    np.nan, np.nan) for center in self.centers]
+                    np.nan, np.nan) for center in self.centers][:self.number_of_objects]
                 previous_positions = Coords_t(len(prev_pos_c), len(
                     prev_pos_c), self.list_as_carg(prev_pos_c))
 
