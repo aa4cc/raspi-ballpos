@@ -57,7 +57,7 @@ URL endpoints:
 - ```/wb``` - Page for white balancing camera.
 - ```/lamp/on```, ```/lamp/off``` - Turn lamp on and off respectively (if available).
 - ```/restart``` - Restart the image detection subsystem.
-- ```/ball_colors``` - UI for live color settings, only works with MultiColorDetector. Example of how to properly configure such a detector can be found in `config_multi.json`. Use GET option `i=#` (i.e. URL `/ball_colors?i=100`) to get a custom number of frames from which to calculate mean and standard deviation (default 5).
+- ```/ball_colors``` - UI for live color settings, only works with MultiColorDetector/RANSAC. Example of how to properly configure such a detector can be found in `config_multi.json`. Use GET option `i=#` (i.e. URL `/ball_colors?i=100`) to get a custom number of frames from which to calculate mean and standard deviation (default 5).
 - ```/triangle``` - Shows the perceived triangle along with its centroid and all ball centers. Currently, balls used for triangle are hard-coded as 1, 4, 5.
 - ```/ransac``` - Ransac settings (see the [manual](ransac_manual.md) for more info)
 
